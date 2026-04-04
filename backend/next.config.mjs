@@ -6,8 +6,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Monorepo: parent folder has root package-lock.json
-  outputFileTracingRoot: path.join(__dirname, ".."),
   async headers() {
     return [
       {
