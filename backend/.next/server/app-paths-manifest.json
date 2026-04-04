@@ -1,0 +1,5 @@
+{
+  "/api/profiles/route": "app/api/profiles/route.js",
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js"
+}
