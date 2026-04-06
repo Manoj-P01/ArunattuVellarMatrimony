@@ -21,6 +21,17 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return {
+      // After checking pages/public files, serve index.html for SPA routes
+      fallback: [
+        {
+          source: "/:path*",
+          destination: "/index.html",
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;

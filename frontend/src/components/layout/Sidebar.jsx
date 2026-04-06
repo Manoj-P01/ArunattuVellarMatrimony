@@ -25,7 +25,7 @@ export function Sidebar({ state, dispatch, t }) {
         width: 220, background: "var(--clr-white)", borderRight: "1px solid var(--clr-border)",
         height: "calc(100vh - 68px)", position: "fixed", top: 68, left: state.sidebarOpen ? 0 : -240,
         zIndex: 60, transition: "left 0.3s ease", overflowY: "auto", padding: "16px 0",
-      }} className={window.innerWidth > 768 ? "" : ""}>
+      }}>
         {navItems.map(item => (
           <button key={item.id} onClick={() => dispatch({ type: "SET_PAGE", payload: item.id })}
             style={{

@@ -51,4 +51,6 @@ dist/
 coverage/
 
 # typescript
-*.tsbuildinfo
+*.tsbuildinfo-e 
+# built frontend assets served by Next.js
+backend/public/
