@@ -5,11 +5,5 @@
       "src": "backend/package.json",
       "use": "@vercel/next"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "backend/$1"
-    }
   ]
 }
