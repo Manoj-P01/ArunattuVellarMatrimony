@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
 
   console.log(`[${new Date().toISOString()}] ${request.method} ${pathname}`)
 
-  const response = await updateSession(request)
+  // Bypassed updateSession temporarily to diagnose Vercel Edge Runtime crash
+  const response = NextResponse.next({ request })
 
   Object.entries(corsHeaders(origin)).forEach(([k, v]) =>
     response.headers.set(k, v)
