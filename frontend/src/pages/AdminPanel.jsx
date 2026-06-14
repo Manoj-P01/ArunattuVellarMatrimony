@@ -2,18 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { RASIS, NATCHATHIRAMS, DOSHAM_TYPES, LAGNAM_POSITIONS } from "../constants/jothidam.js";
 import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
-import { apiAdminApprove, apiAdminReject } from "../api/client.js";
+import { apiAdminApprove, apiAdminReject, apiAdminGenerateInvite } from "../api/client.js";
 import { formatPhone, waLink } from "../components/PhoneInput.jsx";
 
-const base = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-async function apiGenerateInvite(role = "admin", note = "") {
-  const res = await fetch(`${base}/api/admin/invite`, {
-    method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role, note }),
-  });
-  return res.json();
-}
 
 /** Human-readable relative time: "3 days ago", "2 hrs ago", "Just now" */
 function timeAgo(dateStr) {
@@ -372,7 +363,7 @@ export function AdminPanel({ state, dispatch, t }) {
 
   const generateInviteLink = useCallback((role) => {
     setInviteLink("");
-    apiGenerateInvite(role).then(res => {
+    apiAdminGenerateInvite(role).then(res => {
       if (res.invite_url) setInviteLink(res.invite_url);
     }).catch(() => { });
   }, []);

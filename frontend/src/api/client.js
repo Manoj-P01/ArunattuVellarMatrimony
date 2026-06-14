@@ -329,3 +329,12 @@ export async function apiAdminGetAllProfiles(params = {}) {
   const res = await adminFetch(`/api/admin/profiles${buildQuery(params)}`);
   return res.profiles || [];
 }
+
+/** Generate invite token (admin) */
+export async function apiAdminGenerateInvite(role = "admin", note = "") {
+  return adminFetch("/api/admin/invite", {
+    method: "POST",
+    body: JSON.stringify({ role, note }),
+  });
+}
+
