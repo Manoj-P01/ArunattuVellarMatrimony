@@ -1,7 +1,13 @@
 {
-  "framework": "nextjs",
-  "rootDirectory": "backend",
-  "installCommand": "npm install --prefix ../frontend && npm install",
-  "buildCommand": "npm run build --prefix ../frontend && mkdir -p public && cp -r ../frontend/dist/. public/ && next build",
-  "outputDirectory": ".next"
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/package.json",
+      "use": "@vercel/next",
+      "config": {
+        "installCommand": "cd ../frontend && npm install && npm run build && mkdir -p ../backend/public && cp -r dist/. ../backend/public/ && cd ../backend && npm install",
+        "buildCommand": "next build"
+      }
+    }
+  ]
 }
