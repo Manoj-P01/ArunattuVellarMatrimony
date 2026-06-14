@@ -2,6 +2,8 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 // Expanded Next.js Server Action for full Matrimony Registration
 async function registerFullProfile(formData: FormData): Promise<void> {
   'use server'
