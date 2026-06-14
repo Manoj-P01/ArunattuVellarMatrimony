@@ -1,0 +1,9 @@
+[build]
+  # The directory where Netlify runs the build (contains frontend package.json)
+  base = "frontend"
+
+  # The directory containing compiled static files to serve (relative to the base directory)
+  publish = "dist"
+
+  # The command executed to build the frontend
+  command = "npm run build"
