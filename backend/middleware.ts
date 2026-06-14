@@ -1,16 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Origins allowed to call the API with credentials
-const ALLOWED_ORIGINS = [
-  'http://localhost:5173',   // Vite dev server
-  'http://localhost:3001',   // Alternative frontend port
-  'https://avsmatrimony.com',
-  process.env.NEXT_PUBLIC_APP_URL,
-].filter(Boolean);
-
 function corsHeaders(origin: string) {
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  // Reflect incoming origin to allow any domain (needed for Allow-Credentials: true)
+  const allowed = origin || '*';
   return {
     'Access-Control-Allow-Origin':      allowed,
     'Access-Control-Allow-Credentials': 'true',
