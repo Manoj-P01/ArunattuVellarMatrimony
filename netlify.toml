@@ -7,3 +7,8 @@
 
   # The command executed to build the frontend
   command = "npm run build"
+
+[build.environment]
+  # Skip Next.js runtime plugin since this Netlify site only deploys the Vite frontend
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+
