@@ -5,10 +5,10 @@ function corsHeaders(origin: string) {
   // Reflect incoming origin to allow any domain (needed for Allow-Credentials: true)
   const allowed = origin || '*';
   return {
-    'Access-Control-Allow-Origin':      allowed,
+    'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods':     'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers':     'Content-Type, Authorization, X-Requested-With, x-admin-secret',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, x-admin-secret',
   };
 }
 
@@ -72,6 +72,6 @@ export const config = {
   matcher: [
     // Match all API routes; skip Next.js internals and static files
     '/api/:path*',
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
