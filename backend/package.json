@@ -7,8 +7,8 @@
     "start": "next start -p 3000"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.103.0",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.108.1",
     "jsonwebtoken": "^9.0.2",
     "next": "^15.1.0",
     "next-swagger-doc": "^0.4.1",
