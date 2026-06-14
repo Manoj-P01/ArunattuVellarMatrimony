@@ -2,10 +2,8 @@
   # Build command for Next.js backend
   command = "npm run build"
 
-  # The publish directory for Next.js builds on Netlify
-  publish = ".next"
-
 [build.environment]
   # Disable Netlify's secret scanner to prevent false positive build failures on public variables (like SENDER_NAME and Supabase publishable keys)
   SECRETS_SCAN_ENABLED = "false"
+
 
