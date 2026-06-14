@@ -8,6 +8,7 @@ function corsHeaders(origin: string) {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, x-admin-secret',
+    'Access-Control-Allow-Private-Network': 'true', // Allow public HTTPS sites to access localhost
   };
 }
 
