@@ -279,6 +279,13 @@ export function appReducer(state, action) {
 
     // ── Restore session from /api/auth/me on page load ────────────────────
     case "RESTORE_SESSION": {
+      if (!action.payload || !action.payload.user) {
+        return {
+          ...state,
+          user: null,
+          isAdmin: false,
+        };
+      }
       const { user: apiUser, profile: apiProfile } = action.payload;
 
       // Spread full DB record — every field the API returns flows through automatically.

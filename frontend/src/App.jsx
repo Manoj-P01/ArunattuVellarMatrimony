@@ -77,7 +77,9 @@ export default function App() {
       if (cancelled) return;
       dispatch({ type: "SET_DATA", payload: { profiles, notifications } });
       // Restore Supabase session if cookie is still valid
+      if (meData?.user) {
         dispatch({ type: "RESTORE_SESSION", payload: meData });
+      }
     }).catch((err) => {
       if (!cancelled) setLoadError(err.message ?? "Load failed");
     });
