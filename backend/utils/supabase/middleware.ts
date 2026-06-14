@@ -1,4 +1,5 @@
-import { createServerClient } from '@supabase/ssr'
+// ✅ Import directly from the server-only path
+import { createServerClient } from '@supabase/ssr/dist/module/createServerClient'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
