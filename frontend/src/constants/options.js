@@ -1,18 +1,13 @@
-export const DISTRICTS = [
-  "Ariyalur", "Chengalpattu", "Chennai", "Coimbatore", "Cuddalore",
-  "Dharmapuri", "Dindigul", "Erode", "Kallakurichi", "Kancheepuram",
-  "Karur", "Krishnagiri", "Madurai", "Mayiladuthurai", "Nagapattinam",
-  "Namakkal", "Nilgiris", "Perambalur", "Pudukkottai", "Ramanathapuram",
-  "Ranipet", "Salem", "Sivagangai", "Tenkasi", "Thanjavur",
-  "Theni", "Thoothukudi", "Tiruchirappalli", "Tirunelveli", "Tirupattur",
-  "Tiruppur", "Tiruvallur", "Tiruvannamalai", "Tiruvarur", "Vellore",
-  "Viluppuram", "Virudhunagar",
-];
-
+// Education options — grouped meaningfully
 export const EDUCATIONS = [
-  "10th", "12th", "Diploma", "B.E / B.Tech", "B.Sc", "B.Com", "B.A",
-  "BBA", "BCA", "M.E / M.Tech", "M.Sc", "M.Com", "M.A", "MBA", "MCA",
-  "MBBS", "MD", "B.L / LLB", "Ph.D", "CA", "Other",
+  { value: "below_12", label: "Up to 12th (School)" },
+  { value: "bachelors_arts", label: "Bachelor's — Arts / Science / Commerce" },
+  { value: "bachelors_engineering", label: "Bachelor's — Engineering / Technology" },
+  { value: "masters_arts", label: "Master's — Arts / Science / Commerce" },
+  { value: "masters_engineering", label: "Master's — Engineering / Technology" },
+  { value: "doctor", label: "Doctor (MBBS / BDS)" },
+  { value: "doctorate", label: "Doctorate (Ph.D / M.D)" },
+  { value: "other", label: "Other" },
 ];
 
 export const OCCUPATIONS = [
@@ -22,4 +17,11 @@ export const OCCUPATIONS = [
   "Not Working", "Student", "Other",
 ];
 
-export const MARITAL_STATUSES = ["single", "divorced", "widowed"];
+export const MOTHER_OCCUPATIONS = [
+  "Private Employee", "Government Employee", "Business", "Self Employed",
+  "Doctor", "Engineer", "Teacher/Professor", "Lawyer", "CA/Accountant",
+  "IT Professional", "Bank Employee", "Police/Army", "Agriculture",
+  "Not Working", "Student", "House wife", "Other",
+];
+
+export const MARITAL_STATUSES = ["never_married", "divorced", "widowed"];

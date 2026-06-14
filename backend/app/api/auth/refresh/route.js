@@ -1,39 +1,31 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyRefreshToken, generateAccessToken } from "../../../../lib/auth.js";
-
 /**
- * @swagger
- * /api/auth/refresh:
- *   post:
- *     summary: Refresh Access Token
- *     description: Parses the securely stored HttpOnly refresh token to issue a fast, new Access Token avoiding re-login.
- *     responses:
- *       200:
- *         description: New access token issued successfully
- *       401:
- *         description: Unauthorized or expired refresh session meaning users need to sign in again
+ * POST /api/auth/refresh
+ *
+ * Refreshes the Supabase session (rotates the access_token in the cookie).
+ * Supabase JS handles this automatically in the browser, but this endpoint
+ * exists for server-side use or explicit refresh requests.
  */
+
+import { NextResponse } from "next/server";
+import { cookies }      from "next/headers";
+import { createClient } from "../../../../utils/supabase/server.ts";
+
 export async function POST() {
-  const cookieStore = await cookies();
-  const refreshToken = cookieStore.get("refresh_token")?.value;
+  try {
+    const cookieStore = await cookies();
+    const supabase    = createClient(cookieStore);
 
-  if (!refreshToken) {
-    return NextResponse.json({ success: false, error: "No refresh token available. Session absent." }, { status: 401 });
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session) {
+      return NextResponse.json(
+        { success: false, error: "Session expired. Please log in again." },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({ success: true, message: "Session refreshed" });
+  } catch (error) {
+    console.error("POST /api/auth/refresh error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
-
-  const payload = verifyRefreshToken(refreshToken);
-  if (!payload) {
-    return NextResponse.json({ success: false, error: "Invalid or expired refresh token. Please re-authenticate." }, { status: 401 });
-  }
-
-  // Destructure properties avoiding standard JWT footprint claims preventing token bloat
-  const newPayload = {
-    id: payload.id,
-    identifier: payload.identifier,
-    role: payload.role
-  };
-  
-  const accessToken = generateAccessToken(newPayload);
-  return NextResponse.json({ success: true, accessToken });
 }

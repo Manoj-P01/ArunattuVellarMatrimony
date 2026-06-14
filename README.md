@@ -216,8 +216,8 @@ CREATE TABLE profiles (
   mother_tongue VARCHAR(50) DEFAULT 'Tamil',
 
   -- Location
-  country VARCHAR(50) DEFAULT 'India',
-  state VARCHAR(50) DEFAULT 'Tamil Nadu',
+  country VARCHAR(50),
+  state VARCHAR(50),
   district VARCHAR(100),
   city VARCHAR(100),
 

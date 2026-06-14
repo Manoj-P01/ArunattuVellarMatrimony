@@ -132,11 +132,14 @@ export function GlobalStyles() {
       background: var(--clr-surface);
       border-radius: var(--radius-md);
       border: 1px solid var(--clr-border);
-      overflow: hidden;
+      overflow: visible;
       transition: all 0.2s ease;
     }
     .card:hover { box-shadow: var(--shadow-md); }
     .card-body { padding: 20px; }
+    /* Only clip overflow on elements that actually need it */
+    .card .table-wrap { overflow-x: auto; }
+    .card .card-img-wrap { overflow: hidden; border-radius: var(--radius-md) var(--radius-md) 0 0; }
 
     /* Form elements */
     .form-group { margin-bottom: 16px; }

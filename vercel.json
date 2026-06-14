@@ -1,6 +1,7 @@
 {
   "framework": "nextjs",
-  "installCommand": "npm install --prefix frontend && npm install --prefix backend",
-  "buildCommand": "npm run build --prefix frontend && mkdir -p backend/public && cp -r frontend/dist/* backend/public/ && npm run build --prefix backend",
-  "outputDirectory": "backend/.next"
+  "rootDirectory": "backend",
+  "installCommand": "npm install --prefix ../frontend && npm install",
+  "buildCommand": "npm run build --prefix ../frontend && mkdir -p public && cp -r ../frontend/dist/. public/ && next build",
+  "outputDirectory": ".next"
 }
