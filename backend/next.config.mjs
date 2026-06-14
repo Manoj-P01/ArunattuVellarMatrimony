@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ['@supabase/supabase-js'], // ← ADD
   async headers() {
     return [
       {
