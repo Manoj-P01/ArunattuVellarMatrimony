@@ -1,5 +1,4 @@
-// ✅ Import directly from the server-only path
-import { createServerClient } from '@supabase/ssr/dist/module/createServerClient'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -26,7 +25,7 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session
+  // IMPORTANT: do NOT remove this line
   await supabase.auth.getUser()
 
   return supabaseResponse
