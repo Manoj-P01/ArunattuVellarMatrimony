@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { ProfileCard } from "../components/ProfileCard.jsx";
 
-const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const apiBase = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 
 export function HomePage({ state, dispatch, t }) {
   const [testimonials, setTestimonials] = useState([]);

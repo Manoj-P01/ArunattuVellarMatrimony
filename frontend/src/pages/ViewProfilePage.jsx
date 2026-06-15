@@ -32,7 +32,7 @@ function calcAge(dob) {
   return age;
 }
 
-const base = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const base = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 
 async function fetchProfilePhotos(profileId) {
   try {

@@ -5,7 +5,7 @@ import { EDUCATIONS, OCCUPATIONS, MARITAL_STATUSES } from "../constants/options.
 import { RASIS, NATCHATHIRAMS, DOSHAM_TYPES, LAGNAM_POSITIONS, getNatchathiramsByRasi, getPadamsForRasi } from "../constants/jothidam.js";
 import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
 
-const base = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const base = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 
 async function uploadPhoto(fileBase64, fileName, photoType = "gallery") {
   const res = await fetch(`${base}/api/photos`, {

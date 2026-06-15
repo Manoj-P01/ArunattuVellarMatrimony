@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../Icon.jsx";
 
-const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const apiBase = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 
 export function Footer({ state, t, dispatch }) {
   const [contact, setContact] = useState({

@@ -3,7 +3,7 @@ import { Icon } from "../components/Icon.jsx";
 import PhoneInput from "../components/PhoneInput.jsx";
 import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
 
-const base = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const base = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 
 async function validateToken(token) {
   const res = await fetch(`${base}/api/admin/invite?token=${token}`);

@@ -11,6 +11,12 @@
 
 
 [[redirects]]
+  from = "/api/*"
+  to = "https://avs-m-backend.netlify.app/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   # Redirect all requests to index.html for client-side routing (React Router)
   from = "/*"
   to = "/index.html"

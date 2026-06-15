@@ -87,7 +87,7 @@ export function LoginPage({ state, dispatch, t }) {
       setForgotError(t("enterEmail")); setForgotSending(false); return;
     }
     try {
-      const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+      const apiBase = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
       const res = await fetch(apiBase + "/api/auth/reset-password", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail.trim() }),

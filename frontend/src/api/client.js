@@ -8,7 +8,7 @@
 
 
 
-const base        = import.meta.env.VITE_API_URL    ?? "http://localhost:3000";
+const base        = import.meta.env.VITE_API_URL    ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 const adminSecret = import.meta.env.VITE_ADMIN_SECRET ?? "";
 
 // ─── Generic fetch helper ─────────────────────────────────────────────────────
