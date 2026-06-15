@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../Icon.jsx";
 
+const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
 export function Footer({ state, t, dispatch }) {
   const [contact, setContact] = useState({
     appName: "AVS Matrimony",
@@ -15,7 +17,7 @@ export function Footer({ state, t, dispatch }) {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/contact")
+    fetch(`${apiBase}/api/contact`)
       .then((res) => res.json())
       .then((data) => {
         if (active && data && data.officeAddress) {

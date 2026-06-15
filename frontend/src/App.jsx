@@ -1,7 +1,7 @@
 import { useReducer, useCallback, useEffect, useRef, useState } from "react";
 import { TRANSLATIONS } from "./i18n/translations.js";
 import { appReducer, initialState } from "./state/appReducer.js";
-import { fetchInitialData, apiGetMe, apiAdminGetAllProfiles } from "./api/client.js";
+import { fetchInitialData, apiGetMe, apiAdminGetAllProfiles, apiLogout } from "./api/client.js";
 import { GlobalStyles } from "./styles/GlobalStyles.jsx";
 import { Header } from "./components/layout/Header.jsx";
 import { Sidebar } from "./components/layout/Sidebar.jsx";
@@ -43,7 +43,7 @@ export default function App() {
 
   // ── Shared logout (calls backend + clears state) ──────────────────────────
   const handleLogout = useCallback(async () => {
-    try { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); } catch {}
+    try { await apiLogout(); } catch {}
     dispatch({ type: "LOGOUT" });
   }, [dispatch]);
 

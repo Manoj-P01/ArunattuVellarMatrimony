@@ -2,7 +2,12 @@ import { useState, useCallback, useEffect } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { RASIS, NATCHATHIRAMS, DOSHAM_TYPES, LAGNAM_POSITIONS } from "../constants/jothidam.js";
 import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
-import { apiAdminApprove, apiAdminReject, apiAdminGenerateInvite } from "../api/client.js";
+import {
+  apiAdminApprove, apiAdminReject, apiAdminGenerateInvite,
+  apiAdminGetUsers, apiAdminDeleteUser,
+  apiAdminGetPendingAdmins, apiAdminReviewAdmin,
+  apiAdminGetPhotos, apiAdminReviewPhoto,
+} from "../api/client.js";
 import { formatPhone, waLink } from "../components/PhoneInput.jsx";
 
 
@@ -271,10 +276,10 @@ export function AdminPanel({ state, dispatch, t }) {
   const loadAdmins = () => {
     setAdminsLoading(true);
     const calls = [
-      fetch(`${base}/api/admin/users?limit=100`, { credentials: "include" }).then(r => r.json()),
+      apiAdminGetUsers({ limit: 100 }),
     ];
     if (isSuperAdmin) {
-      calls.push(fetch(`${base}/api/admin/approve-admin?status=pending`, { credentials: "include" }).then(r => r.json()));
+      calls.push(apiAdminGetPendingAdmins({ status: "pending" }));
     }
     Promise.all(calls).then(([usersData, pendingData]) => {
       setAdminsList((usersData.users || []).filter(u => u.role === "admin" || u.role === "super_admin"));
@@ -291,13 +296,7 @@ export function AdminPanel({ state, dispatch, t }) {
       return;
     }
     try {
-      const res = await fetch(`${base}/api/admin/users`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
-      });
-      const data = await res.json();
+      const data = await apiAdminDeleteUser(userId);
       if (data.success) {
         alert("Admin account deleted successfully.");
         loadAdmins();
@@ -314,12 +313,7 @@ export function AdminPanel({ state, dispatch, t }) {
   const handleAdminApproval = async (detId, action) => {
     setAdminActionLoading(l => ({ ...l, [detId]: action }));
     try {
-      const res = await fetch(`${base}/api/admin/approve-admin`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_detail_id: detId, action }),
-      });
-      const data = await res.json();
+      const data = await apiAdminReviewAdmin(detId, action);
       if (data.success) {
         setPendingAdmins(prev => prev.filter(a => a.id !== detId));
         if (action === "approve") loadAdmins(); // refresh full list
@@ -331,8 +325,7 @@ export function AdminPanel({ state, dispatch, t }) {
   const loadPendingPhotos = async () => {
     setPhotosLoading(true);
     try {
-      const res = await fetch(`${base}/api/admin/photos?status=pending`, { credentials: "include" });
-      const data = await res.json();
+      const data = await apiAdminGetPhotos({ status: "pending" });
       const photos = data.photos || [];
       setPendingPhotos(photos);
       setPendingPhotosCount(photos.length);
@@ -342,12 +335,8 @@ export function AdminPanel({ state, dispatch, t }) {
   useEffect(() => { loadPendingPhotos(); }, []);
 
   const handlePhotoAction = async (photoId, action) => {
-    const res = await fetch(`${base}/api/admin/photos`, {
-      method: "PATCH", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photo_id: photoId, action }),
-    });
-    if ((await res.json()).success) {
+    const data = await apiAdminReviewPhoto(photoId, action);
+    if (data.success) {
       setPendingPhotos(prev => prev.filter(p => p.id !== photoId));
       setPendingPhotosCount(prev => prev - 1);
     }

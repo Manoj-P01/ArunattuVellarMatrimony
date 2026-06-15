@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { ProfileCard } from "../components/ProfileCard.jsx";
 
+const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
 export function HomePage({ state, dispatch, t }) {
   const [testimonials, setTestimonials] = useState([]);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/testimonials")
+    fetch(`${apiBase}/api/testimonials`)
       .then((res) => res.json())
       .then((data) => {
         if (active && data.testimonials) {

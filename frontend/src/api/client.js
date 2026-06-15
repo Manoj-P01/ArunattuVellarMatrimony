@@ -338,3 +338,40 @@ export async function apiAdminGenerateInvite(role = "admin", note = "") {
   });
 }
 
+// ─── Extra Admin functions used by AdminPanel directly ────────────────────────
+
+/** Get all users with role filter (admin) */
+
+/** Delete an admin user account (super_admin only) */
+export async function apiAdminDeleteUser(userId) {
+  return adminFetch("/api/admin/users", {
+    method: "DELETE",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Get pending admin approval requests */
+export async function apiAdminGetPendingAdmins(params = {}) {
+  return adminFetch(`/api/admin/approve-admin${buildQuery(params)}`);
+}
+
+/** Approve or reject a pending admin (super_admin only) */
+export async function apiAdminReviewAdmin(adminDetailId, action) {
+  return adminFetch("/api/admin/approve-admin", {
+    method: "POST",
+    body: JSON.stringify({ admin_detail_id: adminDetailId, action }),
+  });
+}
+
+/** Get pending/all photos for admin review */
+export async function apiAdminGetPhotos(params = {}) {
+  return adminFetch(`/api/admin/photos${buildQuery(params)}`);
+}
+
+/** Approve or reject a photo (admin) */
+export async function apiAdminReviewPhoto(photoId, action) {
+  return adminFetch("/api/admin/photos", {
+    method: "PATCH",
+    body: JSON.stringify({ photo_id: photoId, action }),
+  });
+}
