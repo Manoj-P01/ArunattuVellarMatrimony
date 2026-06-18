@@ -25,6 +25,8 @@ export function GlobalStyles() {
       --clr-danger: #C53030;
       --clr-success: #38A169;
       --clr-info: #3182CE;
+      --clr-bg-subtle: #F9F4EC;
+      --clr-text-body: #2D2418;
       --font-display: 'Playfair Display', serif;
       --font-body: 'DM Sans', 'Noto Sans Tamil', sans-serif;
       --shadow-sm: 0 1px 3px rgba(45,36,24,0.08);
@@ -45,6 +47,8 @@ export function GlobalStyles() {
       --clr-text-muted: #A0A0A0;
       --clr-border: #333333;
       --clr-white: #1E1E1E;
+      --clr-bg-subtle: #2D2D2D;
+      --clr-text-body: #E0E0E0;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -345,6 +349,102 @@ export function GlobalStyles() {
     @media (min-width: 769px) {
       .hide-desktop { display: none !important; }
       .step-label { display: block; }
+    }
+
+    /* Header layout components */
+    .header-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      gap: 16px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Pending Approval Page layout components */
+    .pending-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 68px);
+      padding: 20px;
+    }
+    .pending-card-inner {
+      padding: 48px 32px;
+    }
+    .pending-info-box {
+      background: var(--clr-bg-subtle);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .pending-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Kothiram Verification responsive classes */
+    .kothiram-verification-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .kothiram-verification-label {
+      font-size: 12px;
+      color: var(--clr-text-muted);
+      min-width: 160px;
+    }
+
+    @media (max-width: 480px) {
+      .header-container {
+        gap: 8px;
+        padding: 0 10px !important;
+      }
+      .header-left {
+        gap: 8px;
+      }
+      .header-right {
+        gap: 6px;
+      }
+      .pending-container {
+        padding: 16px 12px;
+      }
+      .pending-card-inner {
+        padding: 24px 16px;
+      }
+      .pending-info-box {
+        padding: 12px 14px;
+        margin-bottom: 20px;
+      }
+      .pending-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .pending-actions .btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .kothiram-verification-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        margin-bottom: 4px;
+      }
+      .kothiram-verification-label {
+        min-width: unset;
+      }
     }
 
     /* Empty state */

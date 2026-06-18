@@ -20,6 +20,8 @@ import { AdminRegisterPage }  from "./pages/AdminRegisterPage.jsx";
 import { ResetPasswordPage }  from "./pages/ResetPasswordPage.jsx";
 import { HappyStoryPage } from "./pages/HappyStoryPage.jsx";
 import { Footer } from "./components/layout/Footer.jsx";
+import { AdminDetailsPage } from "./pages/AdminDetailsPage.jsx";
+
 
 // Check URL query params for special pages
 // Invite link format: http://localhost:5173/admin?token=xxx
@@ -65,6 +67,11 @@ export default function App() {
       events.forEach(e => window.removeEventListener(e, resetTimer));
     };
   }, [state.user, handleLogout]);
+
+  // ── Scroll to top on page navigation ─────────────────────────────────────
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [state.page]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,9 +173,9 @@ export default function App() {
 
   // Pending approval screen
   const PendingApprovalPage = () => (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 68px)", padding: 20 }}>
+    <div className="pending-container">
       <div className="card" style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
-        <div style={{ padding: "48px 32px" }}>
+        <div className="pending-card-inner">
           <div style={{
             width: 80, height: 80, borderRadius: "50%", margin: "0 auto 20px",
             background: "linear-gradient(135deg,#FFFDE7,#FFE082)",
@@ -184,7 +191,7 @@ export default function App() {
             Thank you for registering with <strong>AVS Matrimony</strong>!
             Your profile has been submitted and is currently under review by our admin team.
           </p>
-          <div style={{ background: "var(--clr-bg-subtle)", borderRadius: 10, padding: "16px 20px", marginBottom: 28, textAlign: "left" }}>
+          <div className="pending-info-box">
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: "var(--clr-saffron)" }}>What happens next?</div>
             {[
               "Our team reviews your profile details",
@@ -206,7 +213,7 @@ export default function App() {
                 : <strong style={{ fontSize: 11, color: "#856404" }}>⏳ Pending Approval</strong>
             }
           </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="pending-actions">
             <button
               className="btn btn-primary btn-sm"
               onClick={handleCheckStatus}
@@ -252,6 +259,7 @@ export default function App() {
       case "profile":     return <ProfilePage     state={state} dispatch={dispatch} t={t} />;
       case "admin":       return <AdminPanel      state={state} dispatch={dispatch} t={t} />;
       case "happyStory":  return <HappyStoryPage  state={state} dispatch={dispatch} t={t} />;
+      case "adminDetails":return <AdminDetailsPage state={state} dispatch={dispatch} t={t} />;
       default:            return <HomePage        state={state} dispatch={dispatch} t={t} />;
     }
   };
@@ -273,7 +281,14 @@ export default function App() {
           {loadError} — Run the Next.js backend (<code style={{ fontSize: 12 }}>npm run dev --prefix backend</code>, port 3000) or set VITE_API_URL.
         </div>
       )}
-      <Header state={state} dispatch={dispatch} t={t} onLogout={handleLogout} />
+      <Header
+        state={state}
+        dispatch={dispatch}
+        t={t}
+        onLogout={handleLogout}
+        showSidebar={showSidebar}
+        needsApproval={needsApproval}
+      />
 
       <div style={{ display: "flex" }}>
         {/* Desktop layout spacer — keeps main content from going under the fixed sidebar */}

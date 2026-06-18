@@ -228,11 +228,9 @@ export async function apiAddToShortlist(profileId) {
   });
 }
 
-/** Remove a profile from shortlist */
 export async function apiRemoveFromShortlist(profileId) {
-  return apiFetch("/api/shortlist", {
+  return apiFetch(`/api/shortlist?profile_id=${profileId}`, {
     method: "DELETE",
-    body: JSON.stringify({ profile_id: profileId }),
   });
 }
 
@@ -344,9 +342,8 @@ export async function apiAdminGenerateInvite(role = "admin", note = "") {
 
 /** Delete an admin user account (super_admin only) */
 export async function apiAdminDeleteUser(userId) {
-  return adminFetch("/api/admin/users", {
+  return adminFetch(`/api/admin/users?user_id=${userId}`, {
     method: "DELETE",
-    body: JSON.stringify({ user_id: userId }),
   });
 }
 

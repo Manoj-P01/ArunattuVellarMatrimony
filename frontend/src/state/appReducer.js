@@ -49,6 +49,7 @@ export const initialState = {
   forceLoginMode: null,
   profiles: [],
   notifications: [],
+  marriages: [],
   /**
    * interests: Array of { id, from, to, status, timestamp }
    *   from = profile_id or "me" for sent interests
@@ -72,6 +73,10 @@ export const initialState = {
     marital_status: "",
     dosham: "",
     kothiram: [],
+    religion: "",
+    community: "",
+    rasi: [],
+    natchathiram: [],
   },
   regStep: 0,
   regData: {
@@ -156,12 +161,13 @@ export function appReducer(state, action) {
 
     // ── Data load ────────────────────────────────────────────────
     case "SET_DATA": {
-      const { profiles, notifications } = action.payload;
+      const { profiles, notifications, marriages } = action.payload;
       // Only update fields that were actually provided (allows profiles-only reload for admin)
       return {
         ...state,
         ...(profiles      !== undefined ? { profiles }      : {}),
         ...(notifications !== undefined ? { notifications } : {}),
+        ...(marriages     !== undefined ? { marriages }     : {}),
       };
     }
 
@@ -649,14 +655,26 @@ export function appReducer(state, action) {
         marriageType,
       };
       const updatedProfiles = state.profiles.map(p =>
-        p.id === brideId || p.id === groomId ? { ...p, profile_status: "married" } : p
+        (brideId && p.id === brideId) || (groomId && p.id === groomId) ? { ...p, profile_status: "married" } : p
       );
-      const bride = state.profiles.find(p => p.id === brideId);
-      const groom = state.profiles.find(p => p.id === groomId);
+      const bride = brideId ? state.profiles.find(p => p.id === brideId) : null;
+      const groom = groomId ? state.profiles.find(p => p.id === groomId) : null;
+      
+      let message = "";
+      if (bride && groom) {
+        message = `Marriage mapped: ${bride.name} & ${groom.name} 💑`;
+      } else if (bride) {
+        message = `${bride.name} marked as Married (Out of Matrimony) 💍`;
+      } else if (groom) {
+        message = `${groom.name} marked as Married (Out of Matrimony) 💍`;
+      } else {
+        message = "Marriage recorded 💍";
+      }
+
       const notif = {
         id: Date.now(),
         type: "match",
-        message: `Marriage mapped: ${bride?.name || "Bride"} & ${groom?.name || "Groom"} 💑`,
+        message,
         time: "Just now",
         read: false,
       };

@@ -25,3 +25,10 @@ export const MOTHER_OCCUPATIONS = [
 ];
 
 export const MARITAL_STATUSES = ["never_married", "divorced", "widowed"];
+
+export function getEducationLabel(val) {
+  if (!val) return "";
+  const found = EDUCATIONS.find(e => e.value === val);
+  return found ? found.label : val;
+}
+

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "../components/Icon.jsx";
-import PhoneInput, { toInternational } from "../components/PhoneInput.jsx";
+import PhoneInput, { toInternational, formatPhone } from "../components/PhoneInput.jsx";
 import { MobileSchema } from "../utils/validations.js";
 import { EDUCATIONS, OCCUPATIONS, MOTHER_OCCUPATIONS, MARITAL_STATUSES } from "../constants/options.js";
 import { RASIS, NATCHATHIRAMS, DOSHAM_TYPES, LAGNAM_POSITIONS, getNatchathiramsByRasi, getPadamsForRasi } from "../constants/jothidam.js";
@@ -1172,11 +1172,11 @@ ${regData.social_links?.length ? `<h2>Social Links</h2><table>${regData.social_l
   <tr><td>Father's Name</td><td>${regData.father_name || "—"}</td></tr>
   <tr><td>Father's Kothiram</td><td>${regData.father_kothiram || "—"}</td></tr>
   <tr><td>Father's Occupation</td><td>${regData.father_occupation || "—"}</td></tr>
-  <tr><td>Father's Contact</td><td>${regData.father_mobile || "—"}${regData.father_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.father_whatsapp || "—"}`}</td></tr>
+  <tr><td>Father's Contact</td><td>${regData.father_mobile ? formatPhone(regData.father_mobile) : "—"}${regData.father_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.father_whatsapp ? formatPhone(regData.father_whatsapp) : "—"}`}</td></tr>
   <tr><td>Mother's Name</td><td>${regData.mother_name || "—"}</td></tr>
   <tr><td>Mother's Kothiram</td><td>${regData.mother_kothiram || "—"}</td></tr>
   <tr><td>Mother's Occupation</td><td>${regData.mother_occupation || "—"}</td></tr>
-  <tr><td>Mother's Contact</td><td>${regData.mother_mobile || "—"}${regData.mother_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.mother_whatsapp || "—"}`}</td></tr>
+  <tr><td>Mother's Contact</td><td>${regData.mother_mobile ? formatPhone(regData.mother_mobile) : "—"}${regData.mother_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.mother_whatsapp ? formatPhone(regData.mother_whatsapp) : "—"}`}</td></tr>
   <tr><td>Family Living In</td><td>${[regData.living_district, regData.living_state, regData.living_country].filter(Boolean).join(", ") || "—"}</td></tr>
 </table>
 ${siblingLines.length ? `<h2>Siblings</h2><table>${siblingLines.map(l => `<tr><td colspan="2">${l}</td></tr>`).join("")}</table>` : ""}
@@ -1254,9 +1254,9 @@ ${siblingLines.length ? `<h2>Siblings</h2><table>${siblingLines.map(l => `<tr><t
 
                 <SectionHead>Family Details</SectionHead>
                 <Row label="Father" value={`${regData.father_name || ""} (${regData.father_kothiram || "—"}) — ${regData.father_occupation || "—"}`} />
-                <Row label="Father's Contact" value={`${regData.father_mobile || "—"}${regData.father_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.father_whatsapp || "—"}`}`} />
+                <Row label="Father's Contact" value={`${regData.father_mobile ? formatPhone(regData.father_mobile) : "—"}${regData.father_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.father_whatsapp ? formatPhone(regData.father_whatsapp) : "—"}`}`} />
                 <Row label="Mother" value={`${regData.mother_name || ""} (${regData.mother_kothiram || "—"}) — ${regData.mother_occupation || "—"}`} />
-                <Row label="Mother's Contact" value={`${regData.mother_mobile || "—"}${regData.mother_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.mother_whatsapp || "—"}`}`} />
+                <Row label="Mother's Contact" value={`${regData.mother_mobile ? formatPhone(regData.mother_mobile) : "—"}${regData.mother_whatsapp_same !== false ? " (WhatsApp same)" : ` / WhatsApp: ${regData.mother_whatsapp ? formatPhone(regData.mother_whatsapp) : "—"}`}`} />
                 {siblingLines.length > 0 && (
                   <Row label="Siblings" value={siblingLines.join(" | ")} />
                 )}

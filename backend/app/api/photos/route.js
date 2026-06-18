@@ -231,7 +231,19 @@ export async function DELETE(request) {
       .eq("user_id", user.id)
       .single();
 
-    const { photo_id } = await request.json();
+    let photo_id;
+    const { searchParams } = new URL(request.url);
+    const queryPhotoId = searchParams.get("photo_id");
+    if (queryPhotoId) {
+      photo_id = queryPhotoId;
+    } else {
+      const body = await request.json().catch(() => ({}));
+      photo_id = body.photo_id;
+    }
+
+    if (!photo_id) {
+      return NextResponse.json({ success: false, error: "photo_id is required" }, { status: 400 });
+    }
 
     // Verify ownership
     const { data: photo } = await supabase

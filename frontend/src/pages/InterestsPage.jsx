@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { getEducationLabel } from "../constants/options.js";
 
 export function InterestsPage({ state, dispatch, t }) {
   const [tab, setTab] = useState("received");
@@ -83,7 +84,7 @@ export function InterestsPage({ state, dispatch, t }) {
                       {sender.profile_id} · {sender.age ? `${sender.age} yrs` : ""} · {sender.district}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--clr-text-muted)" }}>
-                      {sender.education} · {sender.occupation}
+                      {getEducationLabel(sender.education)} · {sender.occupation}
                     </div>
                     <div style={{ marginTop: 6 }}>{statusBadge(interest.status)}</div>
                   </div>

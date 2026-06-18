@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../Icon.jsx";
 
-export function Header({ state, dispatch, t, onLogout }) {
+export function Header({ state, dispatch, t, onLogout, showSidebar, needsApproval }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const unreadCount = state.notifications.filter(n => !n.read).length;
 
@@ -21,10 +21,10 @@ export function Header({ state, dispatch, t, onLogout }) {
         borderBottom: "1px solid var(--clr-border)",
         position: "sticky", top: 0, zIndex: 50,
       }}>
-        <div className="page-container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, gap: 16 }}>
+        <div className="page-container header-container">
           {/* Left */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {state.user && (
+          <div className="header-left">
+            {showSidebar && (
               <button onClick={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--clr-text)", padding: 4 }}>
                 <Icon name="menu" size={22} />
@@ -39,13 +39,14 @@ export function Header({ state, dispatch, t, onLogout }) {
                 color: "white", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14,
               }}>A</div>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, lineHeight: 1.2 }} className="text-gradient">
-                {t("appName")}
+                <span className="hide-mobile">{t("appName")}</span>
+                <span className="hide-desktop">AVS</span>
               </div>
             </div>
           </div>
 
           {/* Right */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="header-right">
             <button className="btn btn-sm btn-secondary" onClick={() => dispatch({ type: "TOGGLE_THEME" })} style={{ padding: "5px 10px" }}>
               <Icon name={state.theme === "dark" ? "moon" : "sun"} size={14} />
             </button>
@@ -69,9 +70,10 @@ export function Header({ state, dispatch, t, onLogout }) {
             {state.user ? (
               <>
                 {/* Notifications Bell */}
-                <div style={{ position: "relative" }}>
-                  <button onClick={() => setNotifOpen(!notifOpen)}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--clr-text)", padding: 6, position: "relative" }}>
+                {!needsApproval && (
+                  <div style={{ position: "relative" }}>
+                    <button onClick={() => setNotifOpen(!notifOpen)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--clr-text)", padding: 6, position: "relative" }}>
                     <Icon name="bell" size={20} />
                     {unreadCount > 0 && (
                       <span style={{
@@ -127,6 +129,7 @@ export function Header({ state, dispatch, t, onLogout }) {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Avatar + Logout */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 4 }}>
@@ -138,7 +141,7 @@ export function Header({ state, dispatch, t, onLogout }) {
                   <div className="hide-mobile" style={{ fontSize: 13, fontWeight: 500, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {state.user.name?.split(" ")[0]}
                   </div>
-                  <button className="btn btn-sm btn-secondary" onClick={onLogout} style={{ fontSize: 12, padding: "5px 10px" }}>
+                  <button className="btn btn-sm btn-secondary hide-mobile" onClick={onLogout} style={{ fontSize: 12, padding: "5px 10px" }}>
                     <Icon name="logout" size={14} />
                   </button>
                 </div>

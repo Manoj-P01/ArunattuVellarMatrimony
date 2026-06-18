@@ -6,13 +6,14 @@ const apiBase = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://l
 export function Footer({ state, t, dispatch }) {
   const [contact, setContact] = useState({
     appName: "AVS Matrimony",
-    officeAddress: "AVS Matrimony Head Office, 45, Saffron Bazar Street, Tirunelveli, Tamil Nadu - 627001",
-    adminName: "Manoj Kumar",
-    phone: "+91 94434 08662",
-    whatsapp: "+91 94434 08662",
-    email: "support@avsmatrimony.com",
-    workingHours: "Monday - Saturday: 9:00 AM - 6:00 PM (Sunday Holiday)",
-    aboutText: "AVS Matrimony is the official and trusted matrimonial platform for the Arunattu Vellalar community, bringing families together through secure and verified matchmaking."
+    officeAddress: "",
+    adminName: "",
+    phone: "",
+    whatsapp: "",
+    email: "",
+    workingHours: "",
+    aboutText: "",
+    admins: []
   });
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export function Footer({ state, t, dispatch }) {
     fetch(`${apiBase}/api/contact`)
       .then((res) => res.json())
       .then((data) => {
-        if (active && data && data.officeAddress) {
+        if (active && data) {
           setContact(data);
         }
       })
@@ -58,9 +59,11 @@ export function Footer({ state, t, dispatch }) {
           }}>
             <span>🔯</span> {contact.appName}
           </h3>
-          <p style={{ lineHeight: 1.6, color: "rgba(255, 255, 255, 0.65)" }}>
-            {contact.aboutText}
-          </p>
+          {contact.aboutText && (
+            <p style={{ lineHeight: 1.6, color: "rgba(255, 255, 255, 0.65)" }}>
+              {contact.aboutText}
+            </p>
+          )}
         </div>
 
         {/* Quick Links Column */}
@@ -82,6 +85,7 @@ export function Footer({ state, t, dispatch }) {
               { id: "search", label: t("search") },
               { id: "matches", label: t("matches") },
               { id: "interests", label: t("interests") },
+              { id: "adminDetails", label: "Admin Details" },
             ].map(link => (
               <li key={link.id}>
                 <button
@@ -146,34 +150,54 @@ export function Footer({ state, t, dispatch }) {
             Office & Contact
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-              <Icon name="mapPin" size={16} style={{ color: "var(--clr-saffron, #E56D25)", marginTop: 2, flexShrink: 0 }} />
-              <span style={{ lineHeight: 1.5 }}>{contact.officeAddress}</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="user" size={16} style={{ color: "var(--clr-saffron, #E56D25)", flexShrink: 0 }} />
-              <span>Admin: <strong>{contact.adminName}</strong></span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="phone" size={16} style={{ color: "var(--clr-saffron, #E56D25)", flexShrink: 0 }} />
-              <a href={`tel:${contact.phone}`} style={{ color: "inherit", textDecoration: "none" }}
-                 onMouseOver={(e) => e.target.style.color = "var(--clr-saffron, #E56D25)"}
-                 onMouseOut={(e) => e.target.style.color = "inherit"}>
-                {contact.phone}
-              </a>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="mail" size={16} style={{ color: "var(--clr-saffron, #E56D25)", flexShrink: 0 }} />
-              <a href={`mailto:${contact.email}`} style={{ color: "inherit", textDecoration: "none" }}
-                 onMouseOver={(e) => e.target.style.color = "var(--clr-saffron, #E56D25)"}
-                 onMouseOut={(e) => e.target.style.color = "inherit"}>
-                {contact.email}
-              </a>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
-              <Icon name="activity" size={14} style={{ flexShrink: 0 }} />
-              <span>{contact.workingHours}</span>
-            </div>
+            {contact.officeAddress && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <Icon name="mapPin" size={16} style={{ color: "var(--clr-saffron, #E56D25)", marginTop: 2, flexShrink: 0 }} />
+                <span style={{ lineHeight: 1.5 }}>{contact.officeAddress}</span>
+              </div>
+            )}
+            {contact.adminName && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="user" size={16} style={{ color: "var(--clr-saffron, #E56D25)", flexShrink: 0 }} />
+                <span>Admin: <strong>{contact.adminName}</strong></span>
+              </div>
+            )}
+            {contact.phone && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="phone" size={16} style={{ color: "var(--clr-saffron, #E56D25)", flexShrink: 0 }} />
+                <a href={`tel:${contact.phone}`} style={{ color: "inherit", textDecoration: "none" }}
+                   onMouseOver={(e) => e.target.style.color = "var(--clr-saffron, #E56D25)"}
+                   onMouseOut={(e) => e.target.style.color = "inherit"}>
+                  {contact.phone}
+                </a>
+              </div>
+            )}
+            {contact.whatsapp && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 14, marginLeft: 2, marginRight: 2, flexShrink: 0 }}>💬</span>
+                <a href={`https://wa.me/${contact.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}
+                   onMouseOver={(e) => e.target.style.color = "var(--clr-saffron, #E56D25)"}
+                   onMouseOut={(e) => e.target.style.color = "inherit"}>
+                  {contact.whatsapp}
+                </a>
+              </div>
+            )}
+            {contact.email && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="mail" size={16} style={{ color: "var(--clr-saffron, #E56D25)", flexShrink: 0 }} />
+                <a href={`mailto:${contact.email}`} style={{ color: "inherit", textDecoration: "none" }}
+                   onMouseOver={(e) => e.target.style.color = "var(--clr-saffron, #E56D25)"}
+                   onMouseOut={(e) => e.target.style.color = "inherit"}>
+                  {contact.email}
+                </a>
+              </div>
+            )}
+            {contact.workingHours && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                <Icon name="activity" size={14} style={{ flexShrink: 0 }} />
+                <span>{contact.workingHours}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

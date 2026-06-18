@@ -158,7 +158,19 @@ export async function DELETE(request) {
       .eq("user_id", user.id)
       .single();
 
-    const { profile_id } = await request.json();
+    let profile_id;
+    const { searchParams } = new URL(request.url);
+    const queryProfileId = searchParams.get("profile_id");
+    if (queryProfileId) {
+      profile_id = queryProfileId;
+    } else {
+      const body = await request.json().catch(() => ({}));
+      profile_id = body.profile_id;
+    }
+
+    if (!profile_id) {
+      return NextResponse.json({ success: false, error: "profile_id is required" }, { status: 400 });
+    }
 
     const { error } = await supabase
       .from("shortlists")

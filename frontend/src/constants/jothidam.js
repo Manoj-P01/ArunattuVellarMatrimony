@@ -1,17 +1,16 @@
-// ─── Rasi (12 zodiac signs) ────────────────────────────────────────────────
 export const RASIS = [
-  { id: "mesham",     en: "Mesham (Aries)",       ta: "மேஷம்" },
-  { id: "rishabam",   en: "Rishabam (Taurus)",     ta: "ரிஷபம்" },
-  { id: "midhunam",   en: "Midhunam (Gemini)",     ta: "மிதுனம்" },
-  { id: "kadagam",    en: "Kadagam (Cancer)",      ta: "கடகம்" },
-  { id: "simmam",     en: "Simmam (Leo)",          ta: "சிம்மம்" },
-  { id: "kanni",      en: "Kanni (Virgo)",         ta: "கன்னி" },
-  { id: "thulam",     en: "Thulam (Libra)",        ta: "துலாம்" },
-  { id: "viruchigam", en: "Viruchigam (Scorpio)",  ta: "விருச்சிகம்" },
-  { id: "thanusu",    en: "Thanusu (Sagittarius)", ta: "தனுசு" },
-  { id: "magaram",    en: "Magaram (Capricorn)",   ta: "மகரம்" },
-  { id: "kumbam",     en: "Kumbam (Aquarius)",     ta: "கும்பம்" },
-  { id: "meenam",     en: "Meenam (Pisces)",       ta: "மீனம்" },
+  { id: "mesham",     en: "Mesham",       ta: "மேஷம்" },
+  { id: "rishabam",   en: "Rishabam",     ta: "ரிஷபம்" },
+  { id: "midhunam",   en: "Midhunam",     ta: "மிதுனம்" },
+  { id: "kadagam",    en: "Kadagam",      ta: "கடகம்" },
+  { id: "simmam",     en: "Simmam",       ta: "சிம்மம்" },
+  { id: "kanni",      en: "Kanni",        ta: "கன்னி" },
+  { id: "thulam",     en: "Thulam",       ta: "துலாம்" },
+  { id: "viruchigam", en: "Viruchigam",   ta: "விருச்சிகம்" },
+  { id: "thanusu",    en: "Thanusu",      ta: "தனுசு" },
+  { id: "magaram",    en: "Magaram",      ta: "மகரம்" },
+  { id: "kumbam",     en: "Kumbam",       ta: "கும்பம்" },
+  { id: "meenam",     en: "Meenam",       ta: "மீனம்" },
 ];
 
 // ─── Natchathirams with Rasi mapping and Patham count ─────────────────────

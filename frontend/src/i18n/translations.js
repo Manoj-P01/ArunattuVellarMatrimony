@@ -42,7 +42,7 @@ export const TRANSLATIONS = {
     active: "Active", inactive: "Inactive", deleted: "Deleted",
 
     /* ── Marital status ──────────────────────────────── */
-    single: "Never Married", divorced: "Divorced", widowed: "Widowed", married: "Married",
+    single: "Never Married", never_married: "Never Married", divorced: "Divorced", widowed: "Widowed", married: "Married",
 
     /* ── Jothidam ────────────────────────────────────── */
     jothidamDetails: "Jothidam Details",
@@ -261,7 +261,7 @@ export const TRANSLATIONS = {
     active: "செயலில்", inactive: "செயலற்ற", deleted: "நீக்கப்பட்ட",
 
     /* ── Marital status ──────────────────────────────── */
-    single: "திருமணமாகாதவர்", divorced: "விவாகரத்து", widowed: "விதவை/விதுரர்", married: "திருமணமானவர்",
+    single: "திருமணமாகாதவர்", never_married: "திருமணமாகாதவர்", divorced: "விவாகரத்து", widowed: "விதவை/விதுரர்", married: "திருமணமானவர்",
 
     /* ── Jothidam ────────────────────────────────────── */
     jothidamDetails: "ஜோதிட விவரங்கள்",

@@ -125,7 +125,16 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
-    const { user_id } = await request.json();
+    let user_id;
+    const { searchParams } = new URL(request.url);
+    const queryUserId = searchParams.get("user_id");
+    if (queryUserId) {
+      user_id = queryUserId;
+    } else {
+      const body = await request.json().catch(() => ({}));
+      user_id = body.user_id;
+    }
+
     if (!user_id) {
       return NextResponse.json({ success: false, error: "user_id is required" }, { status: 400 });
     }

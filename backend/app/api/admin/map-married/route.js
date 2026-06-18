@@ -26,6 +26,7 @@ export async function POST(request) {
       married_date,
       marriage_type,
       married_via_matrimony = false,
+      testimonial,
     } = await request.json();
 
     if (!married_date || !marriage_type) {
@@ -62,13 +63,49 @@ export async function POST(request) {
 
     if (marriageError) throw marriageError;
 
-    // Set profiles to 'married'
-    const toUpdate = [bride_profile_id, groom_profile_id].filter(Boolean);
-    if (toUpdate.length > 0) {
+    // Get profiles to fetch their human-readable profile IDs
+    let bride_human_id = null;
+    let groom_human_id = null;
+    if (bride_profile_id || groom_profile_id) {
+      const ids = [bride_profile_id, groom_profile_id].filter(Boolean);
+      const { data: profiles } = await svc
+        .from("profiles")
+        .select("id, profile_id")
+        .in("id", ids);
+      if (profiles) {
+        const brideProf = profiles.find(p => p.id === bride_profile_id);
+        const groomProf = profiles.find(p => p.id === groom_profile_id);
+        if (brideProf) bride_human_id = brideProf.profile_id;
+        if (groomProf) groom_human_id = groomProf.profile_id;
+      }
+    }
+
+    // Set profiles status to 'married', set got_married, and store the testimonial
+    if (bride_profile_id) {
       await svc
         .from("profiles")
-        .update({ profile_status: "married", updated_at: new Date().toISOString() })
-        .in("id", toUpdate);
+        .update({
+          profile_status: "married",
+          got_married: true,
+          marriage_date: married_date,
+          partner_profile_id: groom_human_id || null,
+          marriage_feedback: testimonial || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", bride_profile_id);
+    }
+    if (groom_profile_id) {
+      await svc
+        .from("profiles")
+        .update({
+          profile_status: "married",
+          got_married: true,
+          marriage_date: married_date,
+          partner_profile_id: bride_human_id || null,
+          marriage_feedback: testimonial || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", groom_profile_id);
     }
 
     await svc.from("admin_log").insert({
@@ -108,8 +145,8 @@ export async function GET(request) {
       .from("marriage")
       .select(`
         id, married_date, marriage_type, married_via_matrimony, partner_name, created_at,
-        bride_profile:bride_profile_id (id, profile_id, name, district),
-        groom_profile:groom_profile_id (id, profile_id, name, district)
+        bride_profile:bride_profile_id (id, profile_id, name, district, marriage_feedback),
+        groom_profile:groom_profile_id (id, profile_id, name, district, marriage_feedback)
       `)
       .order("married_date", { ascending: false });
 

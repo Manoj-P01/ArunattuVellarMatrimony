@@ -17,10 +17,8 @@ async function uploadPhoto(fileBase64, fileName, photoType = "gallery") {
 }
 
 async function deletePhoto(photoId) {
-  const res = await fetch(`${base}/api/photos`, {
+  const res = await fetch(`${base}/api/photos?photo_id=${photoId}`, {
     method: "DELETE", credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ photo_id: photoId }),
   });
   return res.json();
 }
@@ -980,7 +978,7 @@ export function ProfilePage({ state, dispatch, t }) {
                 ) : (
                   <ReadOnlyField>
                     <div style={{ width: "100%" }}>
-                      <span>{form.father_mobile || <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}</span>
+                      <span>{form.father_mobile ? formatPhone(form.father_mobile) : <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}</span>
                       {form.father_mobile && (!form.father_whatsapp || form.father_whatsapp === form.father_mobile) && (
                         <span style={{ fontSize: 11, color: "var(--clr-success)", marginLeft: 6, fontWeight: 600 }}>(WhatsApp Same)</span>
                       )}
@@ -1000,7 +998,7 @@ export function ProfilePage({ state, dispatch, t }) {
                     />
                   ) : (
                     <ReadOnlyField>
-                      {form.father_whatsapp || <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}
+                      {form.father_whatsapp ? formatPhone(form.father_whatsapp) : <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}
                     </ReadOnlyField>
                   )}
                 </div>
@@ -1030,7 +1028,7 @@ export function ProfilePage({ state, dispatch, t }) {
                 ) : (
                   <ReadOnlyField>
                     <div style={{ width: "100%" }}>
-                      <span>{form.mother_mobile || <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}</span>
+                      <span>{form.mother_mobile ? formatPhone(form.mother_mobile) : <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}</span>
                       {form.mother_mobile && (!form.mother_whatsapp || form.mother_whatsapp === form.mother_mobile) && (
                         <span style={{ fontSize: 11, color: "var(--clr-success)", marginLeft: 6, fontWeight: 600 }}>(WhatsApp Same)</span>
                       )}
@@ -1050,7 +1048,7 @@ export function ProfilePage({ state, dispatch, t }) {
                     />
                   ) : (
                     <ReadOnlyField>
-                      {form.mother_whatsapp || <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}
+                      {form.mother_whatsapp ? formatPhone(form.mother_whatsapp) : <span style={{ color: "var(--clr-text-muted)" }}>Not set</span>}
                     </ReadOnlyField>
                   )}
                 </div>

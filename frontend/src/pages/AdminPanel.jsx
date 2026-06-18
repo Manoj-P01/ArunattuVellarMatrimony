@@ -2,13 +2,15 @@ import { useState, useCallback, useEffect } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { RASIS, NATCHATHIRAMS, DOSHAM_TYPES, LAGNAM_POSITIONS } from "../constants/jothidam.js";
 import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
+import { getEducationLabel } from "../constants/options.js";
 import {
   apiAdminApprove, apiAdminReject, apiAdminGenerateInvite,
   apiAdminGetUsers, apiAdminDeleteUser,
   apiAdminGetPendingAdmins, apiAdminReviewAdmin,
   apiAdminGetPhotos, apiAdminReviewPhoto,
+  apiAdminGetMarriages, apiAdminMapMarried,
 } from "../api/client.js";
-import { formatPhone, waLink } from "../components/PhoneInput.jsx";
+import { formatPhone, waLink, parsePhone } from "../components/PhoneInput.jsx";
 
 
 /** Human-readable relative time: "3 days ago", "2 hrs ago", "Just now" */
@@ -178,7 +180,7 @@ function AdminProfileDetail({ profile, onClose, dispatch, t, onApprove, onReject
             <Row label={t("birthPlace")} value={p.birth_place} />
             <Row label={t("height")} value={p.height} />
             <Row label={t("maritalStatus")} value={p.marital_status ? t(p.marital_status) : null} />
-            <Row label={t("education")} value={p.education} />
+            <Row label={t("education")} value={getEducationLabel(p.education)} />
             <Row label={t("occupation")} value={p.occupation} />
             <Row label={t("salary")} value={p.salary ? `₹${p.salary} ${t("lpa")}` : null} />
           </Section>
@@ -220,6 +222,20 @@ function AdminProfileDetail({ profile, onClose, dispatch, t, onApprove, onReject
             <Row label={t("fatherKothiram")} value={p.father_kothiram} />
             <Row label={t("motherName")} value={p.mother_name} />
             <Row label={t("motherKothiram")} value={p.mother_kothiram} />
+            <Row label="Father's Mobile" value={p.father_mobile ? formatPhone(p.father_mobile) : null} />
+            <Row label="Father's WhatsApp" value={(p.father_whatsapp || p.father_mobile) ? (
+              <a href={waLink(p.father_whatsapp || p.father_mobile)} target="_blank" rel="noopener noreferrer"
+                style={{ color: "#16a34a", fontWeight: 600 }}>
+                {formatPhone(p.father_whatsapp || p.father_mobile)} {!p.father_whatsapp ? " (Same)" : ""}
+              </a>
+            ) : null} />
+            <Row label="Mother's Mobile" value={p.mother_mobile ? formatPhone(p.mother_mobile) : null} />
+            <Row label="Mother's WhatsApp" value={(p.mother_whatsapp || p.mother_mobile) ? (
+              <a href={waLink(p.mother_whatsapp || p.mother_mobile)} target="_blank" rel="noopener noreferrer"
+                style={{ color: "#16a34a", fontWeight: 600 }}>
+                {formatPhone(p.mother_whatsapp || p.mother_mobile)} {!p.mother_whatsapp ? " (Same)" : ""}
+              </a>
+            ) : null} />
             <Row label={t("brothers")} value={
               p.brother_count !== "" && p.brother_count !== undefined
                 ? `${p.brother_count}${p.brother_married_status ? " — " + (SIBLING_MARRIED_LABELS[p.brother_married_status] || p.brother_married_status) : ""}`
@@ -258,14 +274,71 @@ function AdminProfileDetail({ profile, onClose, dispatch, t, onApprove, onReject
 export function AdminPanel({ state, dispatch, t }) {
   const { adminTab } = state;
   const isSuperAdmin = state.user?.role === "super_admin";
-  const [marriageForm, setMarriageForm] = useState({ brideId: "", groomId: "", marriedDate: "", marriageType: "arranged" });
+  const [marriageForm, setMarriageForm] = useState({ brideId: "", groomId: "", marriedDate: "", marriageType: "arranged", testimonial: "" });
   const [mapSuccess, setMapSuccess] = useState("");
+  const [testimonials, setTestimonials] = useState([]);
+  const [testimonialsLoading, setTestimonialsLoading] = useState(false);
+  const [marriagesLoading, setMarriagesLoading] = useState(false);
 
   // ── Photos / Jathagam pending approval ─────────────────────────────────
   const [pendingPhotos, setPendingPhotos] = useState([]);
   const [pendingPhotosCount, setPendingPhotosCount] = useState(0);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState(null); // { url, name, profileId, photoType }
+
+  // ── Export options ─────────────────────────────────────────────────────
+  const [exportFilter, setExportFilter] = useState("all");
+  const [exportColumns, setExportColumns] = useState({
+    profile_id: true,
+    name: true,
+    profile_type: true,
+    dob: true,
+    age: true,
+    marital_status: true,
+    whatsapp_code: true,
+    whatsapp_num: true,
+    contact_code: true,
+    contact_num: true,
+    email: true,
+    community: true,
+    kothiram: true,
+    native_place: true,
+    district: true,
+    state: true,
+    country: true,
+    living_country: false,
+    living_state: false,
+    living_district: false,
+    birth_place: false,
+    birth_time: false,
+    rasi: false,
+    natchathiram: false,
+    patham: false,
+    dosham: false,
+    sevvai_position: false,
+    ragu_position: false,
+    kedhu_position: false,
+    education: false,
+    occupation: false,
+    salary: false,
+    father_name: false,
+    father_kothiram: false,
+    father_occupation: false,
+    father_mobile_code: false,
+    father_mobile_num: false,
+    father_whatsapp_code: false,
+    father_whatsapp_num: false,
+    mother_name: false,
+    mother_kothiram: false,
+    mother_occupation: false,
+    mother_mobile_code: false,
+    mother_mobile_num: false,
+    mother_whatsapp_code: false,
+    mother_whatsapp_num: false,
+    about_me: false,
+    expectations: false,
+    created_at: false,
+  });
 
   // ── Admins list + pending approvals ─────────────────────────────────────
   const [adminsList, setAdminsList] = useState([]);
@@ -363,6 +436,45 @@ export function AdminPanel({ state, dispatch, t }) {
     }
   }, [inviteRole, isSuperAdmin, generateInviteLink]);
 
+  const loadMarriages = useCallback(() => {
+    setMarriagesLoading(true);
+    apiAdminGetMarriages()
+      .then(data => {
+        const normalised = data.map(m => ({
+          id: m.id,
+          brideId: m.bride_profile?.id || null,
+          groomId: m.groom_profile?.id || null,
+          marriedDate: m.married_date,
+          marriageType: m.marriage_type,
+          partnerName: m.partner_name,
+        }));
+        dispatch({ type: "SET_DATA", payload: { marriages: normalised } });
+      })
+      .catch(() => {})
+      .finally(() => setMarriagesLoading(false));
+  }, [dispatch]);
+
+  const loadTestimonials = useCallback(() => {
+    setTestimonialsLoading(true);
+    fetch("/api/testimonials")
+      .then(res => res.json())
+      .then(data => {
+        setTestimonials(data.testimonials || []);
+      })
+      .catch(() => {})
+      .finally(() => setTestimonialsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (adminTab === "married") {
+      loadMarriages();
+    }
+  }, [adminTab, loadMarriages]);
+
+  useEffect(() => {
+    loadTestimonials();
+  }, [loadTestimonials]);
+
   const handleCopyInvite = () => {
     if (!inviteLink) return;
     navigator.clipboard.writeText(inviteLink).then(() => {
@@ -453,17 +565,160 @@ export function AdminPanel({ state, dispatch, t }) {
     // Show oldest (most urgent) registrations first
     .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
 
-  const handleMapMarriage = () => {
-    if (!marriageForm.brideId || !marriageForm.groomId || !marriageForm.marriedDate) return;
-    dispatch({ type: "MAP_MARRIAGE", payload: marriageForm });
-    setMapSuccess("Marriage mapped successfully! 💑");
-    setMarriageForm({ brideId: "", groomId: "", marriedDate: "", marriageType: "arranged" });
-    setTimeout(() => setMapSuccess(""), 3000);
+  const handleMapMarriage = async () => {
+    if ((!marriageForm.brideId && !marriageForm.groomId) || !marriageForm.marriedDate) return;
+    setMarriagesLoading(true);
+    try {
+      const payload = {
+        bride_profile_id: marriageForm.brideId || null,
+        groom_profile_id: marriageForm.groomId || null,
+        married_date: marriageForm.marriedDate,
+        marriage_type: marriageForm.marriageType,
+        testimonial: marriageForm.testimonial || null,
+      };
+      const res = await apiAdminMapMarried(payload);
+      if (res.success) {
+        setMapSuccess("Marriage mapped successfully! 💑");
+        setMarriageForm({ brideId: "", groomId: "", marriedDate: "", marriageType: "arranged", testimonial: "" });
+        setTimeout(() => setMapSuccess(""), 3000);
+        loadMarriages();
+        loadTestimonials();
+      } else {
+        alert(res.error || "Failed to map marriage");
+      }
+    } catch (err) {
+      alert("Network error mapping marriage");
+    } finally {
+      setMarriagesLoading(false);
+    }
   };
 
   const handleStatClick = (card) => {
     setUsersStatusFilter(card.filter || "");
     setTab(card.tab);
+  };
+
+  const handleExport = () => {
+    // 1. Filter profiles - only approved profiles
+    let filtered = state.profiles.filter(p => p.approval_status === "approved");
+    if (exportFilter === "current_month") {
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth();
+      filtered = filtered.filter(p => {
+        if (!p.created_at) return false;
+        const d = new Date(p.created_at);
+        return d.getFullYear() === curYear && d.getMonth() === curMonth;
+      });
+    } else if (exportFilter === "brides") {
+      filtered = filtered.filter(p => p.profile_type === "bride");
+    } else if (exportFilter === "grooms") {
+      filtered = filtered.filter(p => p.profile_type === "groom");
+    }
+
+    // 2. Select checked columns
+    const selectedCols = Object.entries(exportColumns)
+      .filter(([_, checked]) => checked)
+      .map(([colId, _]) => colId);
+
+    if (selectedCols.length === 0) {
+      alert("Please select at least one column to export.");
+      return;
+    }
+
+    // Column definitions
+    const columnsList = [
+      { id: "profile_id", header: "Profile ID", val: p => p.profile_id || "—" },
+      { id: "name", header: "Name", val: p => p.name || "—" },
+      { id: "profile_type", header: "Gender", val: p => p.profile_type === "bride" ? "Bride" : "Groom" },
+      { id: "dob", header: "Date of Birth", val: p => p.dob || "—" },
+      { id: "age", header: "Age", val: p => p.dob ? Math.floor((Date.now() - new Date(p.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "—" },
+      { id: "marital_status", header: "Marital Status", val: p => (p.marital_status || "—").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) },
+      { id: "whatsapp_code", header: "WhatsApp Country Code", val: p => p.whatsapp ? `'${parsePhone(p.whatsapp).code}` : "—" },
+      { id: "whatsapp_num", header: "WhatsApp Mobile Number", val: p => p.whatsapp ? `'${parsePhone(p.whatsapp).number}` : "—" },
+      { id: "contact_code", header: "Contact Country Code", val: p => p.contact ? `'${parsePhone(p.contact).code}` : "—" },
+      { id: "contact_num", header: "Contact Mobile Number", val: p => p.contact ? `'${parsePhone(p.contact).number}` : "—" },
+      { id: "email", header: "Email Address", val: p => p.email || "—" },
+      { id: "community", header: "Community", val: p => p.community || "Arunattu Vellalar" },
+      { id: "kothiram", header: "Kothiram", val: p => p.kothiram || "—" },
+      { id: "native_place", header: "Native Place", val: p => p.native_place || "—" },
+      { id: "district", header: "District", val: p => p.district || "—" },
+      { id: "state", header: "State", val: p => p.state || "—" },
+      { id: "country", header: "Country", val: p => p.country || "—" },
+      { id: "living_country", header: "Living Country", val: p => p.living_country || "—" },
+      { id: "living_state", header: "Living State", val: p => p.living_state || "—" },
+      { id: "living_district", header: "Living District", val: p => p.living_district || "—" },
+      { id: "birth_place", header: "Birth Place", val: p => p.birth_place || "—" },
+      { id: "birth_time", header: "Birth Time", val: p => p.birth_time || "—" },
+      { id: "rasi", header: "Rasi", val: p => {
+          const r = RASIS.find(x => x.id === p.rasi);
+          return r ? `${r.en} - ${r.ta}` : p.rasi || "—";
+        }
+      },
+      { id: "natchathiram", header: "Natchathiram", val: p => {
+          const n = NATCHATHIRAMS.find(x => x.id === p.natchathiram);
+          return n ? `${n.en} - ${n.ta}` : p.natchathiram || "—";
+        }
+      },
+      { id: "patham", header: "Patham", val: p => p.patham || "—" },
+      { id: "dosham", header: "Dosham", val: p => DOSHAM_TYPES.find(d => d.id === p.dosham)?.en || p.dosham || "—" },
+      { id: "sevvai_position", header: "Sevvai Dosham Position", val: p => LAGNAM_POSITIONS.find(l => l.id === p.sevvai_position)?.en || p.sevvai_position || "—" },
+      { id: "ragu_position", header: "Ragu Dosham Position", val: p => LAGNAM_POSITIONS.find(l => l.id === p.ragu_position)?.en || p.ragu_position || "—" },
+      { id: "kedhu_position", header: "Kedhu Dosham Position", val: p => LAGNAM_POSITIONS.find(l => l.id === p.kedhu_position)?.en || p.kedhu_position || "—" },
+      { id: "education", header: "Education", val: p => getEducationLabel(p.education) || "—" },
+      { id: "occupation", header: "Occupation", val: p => p.occupation || "—" },
+      { id: "salary", header: "Salary (LPA)", val: p => p.salary ? `₹${p.salary} LPA` : "—" },
+      { id: "father_name", header: "Father's Name", val: p => p.father_name || "—" },
+      { id: "father_kothiram", header: "Father's Kothiram", val: p => p.father_kothiram || "—" },
+      { id: "father_occupation", header: "Father's Occupation", val: p => p.father_occupation || "—" },
+      { id: "father_mobile_code", header: "Father Mobile Country Code", val: p => p.father_mobile ? `'${parsePhone(p.father_mobile).code}` : "—" },
+      { id: "father_mobile_num", header: "Father Mobile Number", val: p => p.father_mobile ? `'${parsePhone(p.father_mobile).number}` : "—" },
+      { id: "father_whatsapp_code", header: "Father WhatsApp Country Code", val: p => p.father_whatsapp ? `'${parsePhone(p.father_whatsapp).code}` : "—" },
+      { id: "father_whatsapp_num", header: "Father WhatsApp Number", val: p => p.father_whatsapp ? `'${parsePhone(p.father_whatsapp).number}` : "—" },
+      { id: "mother_name", header: "Mother's Name", val: p => p.mother_name || "—" },
+      { id: "mother_kothiram", header: "Mother's Kothiram", val: p => p.mother_kothiram || "—" },
+      { id: "mother_occupation", header: "Mother's Occupation", val: p => p.mother_occupation || "—" },
+      { id: "mother_mobile_code", header: "Mother Mobile Country Code", val: p => p.mother_mobile ? `'${parsePhone(p.mother_mobile).code}` : "—" },
+      { id: "mother_mobile_num", header: "Mother Mobile Number", val: p => p.mother_mobile ? `'${parsePhone(p.mother_mobile).number}` : "—" },
+      { id: "mother_whatsapp_code", header: "Mother WhatsApp Country Code", val: p => p.mother_whatsapp ? `'${parsePhone(p.mother_whatsapp).code}` : "—" },
+      { id: "mother_whatsapp_num", header: "Mother WhatsApp Number", val: p => p.mother_whatsapp ? `'${parsePhone(p.mother_whatsapp).number}` : "—" },
+      { id: "about_me", header: "About Me", val: p => p.about_me || "—" },
+      { id: "expectations", header: "Partner Expectations", val: p => p.expectations || "—" },
+      { id: "created_at", header: "Registration Date", val: p => p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "—" },
+    ];
+
+    const headers = selectedCols.map(id => columnsList.find(c => c.id === id).header);
+    
+    // Create rows
+    const csvRows = [];
+    csvRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(","));
+
+    filtered.forEach(p => {
+      const rowValues = selectedCols.map(id => {
+        const col = columnsList.find(c => c.id === id);
+        const val = String(col.val(p));
+        // Escape double quotes and wrap in quotes to prevent commas breaking cells
+        return `"${val.replace(/"/g, '""')}"`;
+      });
+      csvRows.push(rowValues.join(","));
+    });
+
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    
+    // Filename
+    let filterStr = "all_profiles";
+    if (exportFilter === "current_month") filterStr = "current_month_registration";
+    else if (exportFilter === "brides") filterStr = "brides_details";
+    else if (exportFilter === "grooms") filterStr = "grooms_details";
+    
+    link.setAttribute("download", `AVS_Matrimony_Export_${filterStr}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -559,6 +814,7 @@ export function AdminPanel({ state, dispatch, t }) {
             { id: "married", icon: "award", label: t("marriedUsers") },
             { id: "photos", icon: "camera", label: "Photos", badge: pendingPhotosCount },
             { id: "reports", icon: "barChart", label: t("reports") },
+            { id: "export", icon: "download", label: "Export" },
           ].map(tab => (
             <TooltipIcon
               key={tab.id}
@@ -723,6 +979,49 @@ export function AdminPanel({ state, dispatch, t }) {
                 </div>
               </div>
             </div>
+
+            {/* Recent Testimonials */}
+            <div className="card" style={{ marginTop: 20 }}>
+              <div className="card-body">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600 }}>
+                    Recent Testimonials & Success Stories
+                  </h3>
+                  <button className="btn btn-sm btn-secondary" onClick={loadTestimonials} disabled={testimonialsLoading}>
+                    🔄 Refresh
+                  </button>
+                </div>
+                {testimonials.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "var(--clr-text-muted)" }}>
+                    No testimonials submitted yet.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+                    {testimonials.slice(0, 4).map(t => (
+                      <div key={t.id} style={{
+                        background: "var(--clr-surface-alt)", borderRadius: 10, padding: 16,
+                        border: "1px solid var(--clr-border)", fontSize: 13, display: "flex", flexDirection: "column", justifyContent: "space-between"
+                      }}>
+                        <p style={{ fontStyle: "italic", marginBottom: 12, color: "var(--clr-text)" }}>
+                          "{t.marriage_feedback}"
+                        </p>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, borderTop: "1px dashed var(--clr-border)", paddingTop: 10 }}>
+                          <div className={`avatar avatar-sm avatar-${t.profile_type}`} style={{ fontWeight: 700 }}>
+                            {t.name?.[0] || "?"}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{t.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>
+                              ID: {t.profile_id} {t.partner_profile_id && `· Matched with ${t.partner_profile_id}`}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -800,8 +1099,8 @@ export function AdminPanel({ state, dispatch, t }) {
                                     ["Father's Kothiram", p.father_kothiram],
                                     ["Mother's Birth Kothiram", p.mother_kothiram],
                                   ].map(([label, val]) => (
-                                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <span style={{ fontSize: 12, color: "var(--clr-text-muted)", minWidth: 160 }}>{label}:</span>
+                                    <div key={label} className="kothiram-verification-row">
+                                      <span className="kothiram-verification-label">{label}:</span>
                                       <span style={{
                                         fontSize: 13, fontWeight: 700,
                                         padding: "2px 10px", borderRadius: 4,
@@ -820,12 +1119,10 @@ export function AdminPanel({ state, dispatch, t }) {
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "4px 16px", fontSize: 13 }}>
                                 {[
                                   ["Age", p.dob ? Math.floor((Date.now() - new Date(p.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) + " yrs" : null],
-                                  [t("education"), p.education],
+                                  [t("education"), getEducationLabel(p.education)],
                                   ["Occupation", p.occupation],
                                   ["Native Place", p.native_place],
                                   ["District", p.district],
-                                  ["Email", p.email],
-                                  ["WhatsApp", p.whatsapp ? formatPhone(p.whatsapp) : null],
                                 ].map(([label, val]) => val ? (
                                   <div key={label}>
                                     <span style={{ color: "var(--clr-text-muted)" }}>{label}: </span>
@@ -833,6 +1130,34 @@ export function AdminPanel({ state, dispatch, t }) {
                                   </div>
                                 ) : null)}
                               </div>
+
+                              {/* ── Contact Details (Merged View) ── */}
+                              {(p.email || p.whatsapp) && (
+                                <div style={{
+                                  marginTop: 8,
+                                  paddingTop: 8,
+                                  borderTop: "1px dashed var(--clr-border)",
+                                  display: "flex",
+                                  gap: 16,
+                                  flexWrap: "wrap",
+                                  fontSize: 13
+                                }}>
+                                  {p.email && (
+                                    <div>
+                                      <span style={{ color: "var(--clr-text-muted)" }}>Email: </span>
+                                      <a href={`mailto:${p.email}`} style={{ color: "inherit", textDecoration: "none", fontWeight: 500 }}>
+                                        {p.email}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {p.whatsapp && (
+                                    <div>
+                                      <span style={{ color: "var(--clr-text-muted)" }}>WhatsApp: </span>
+                                      <span style={{ fontWeight: 500 }}>{formatPhone(p.whatsapp)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
                               <button className="btn btn-sm btn-secondary" onClick={() => setViewingProfile(p)}>
@@ -965,7 +1290,7 @@ export function AdminPanel({ state, dispatch, t }) {
                                 <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
                                 <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>
                                   {p.dob ? Math.floor((Date.now() - new Date(p.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) + " yrs" : ""}
-                                  {p.education ? ` · ${p.education}` : ""}
+                                  {p.education ? ` · ${getEducationLabel(p.education)}` : ""}
                                 </div>
                               </div>
                             </div>
@@ -1025,20 +1350,20 @@ export function AdminPanel({ state, dispatch, t }) {
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">{t("bride")} Profile *</label>
+                    <label className="form-label">{t("bride")} Profile</label>
                     <select className="form-input" value={marriageForm.brideId}
                       onChange={e => setMarriageForm(f => ({ ...f, brideId: e.target.value }))}>
-                      <option value="">— Select Bride —</option>
+                      <option value="">— Select Bride (or Married Out of Matrimony) —</option>
                       {state.profiles.filter(p => p.profile_type === "bride" && p.approval_status === "approved" && p.profile_status !== "married").map(p => (
                         <option key={p.id} value={p.id}>{p.profile_id} — {p.name}</option>
                       ))}
                     </select>
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">{t("groom")} Profile *</label>
+                    <label className="form-label">{t("groom")} Profile</label>
                     <select className="form-input" value={marriageForm.groomId}
                       onChange={e => setMarriageForm(f => ({ ...f, groomId: e.target.value }))}>
-                      <option value="">— Select Groom —</option>
+                      <option value="">— Select Groom (or Married Out of Matrimony) —</option>
                       {state.profiles.filter(p => p.profile_type === "groom" && p.approval_status === "approved" && p.profile_status !== "married").map(p => (
                         <option key={p.id} value={p.id}>{p.profile_id} — {p.name}</option>
                       ))}
@@ -1058,11 +1383,16 @@ export function AdminPanel({ state, dispatch, t }) {
                       <option value="matrimony">{t("matrimonyMatch")}</option>
                     </select>
                   </div>
+                  <div className="form-group" style={{ gridColumn: "1 / -1", marginBottom: 0 }}>
+                    <label className="form-label">Testimonial / Success Story (Optional)</label>
+                    <textarea className="form-input" placeholder="Enter success story or wedding testimonial..." rows={3} value={marriageForm.testimonial}
+                      onChange={e => setMarriageForm(f => ({ ...f, testimonial: e.target.value }))} style={{ resize: "vertical" }} />
+                  </div>
                 </div>
                 <button className="btn btn-primary" style={{ marginTop: 16 }}
-                  disabled={!marriageForm.brideId || !marriageForm.groomId || !marriageForm.marriedDate}
+                  disabled={(!marriageForm.brideId && !marriageForm.groomId) || !marriageForm.marriedDate || marriagesLoading}
                   onClick={handleMapMarriage}>
-                  <Icon name="link" size={14} /> {t("mapPartner")}
+                  <Icon name="link" size={14} /> {marriagesLoading ? "Mapping..." : t("mapPartner")}
                 </button>
               </div>
             </div>
@@ -1085,32 +1415,38 @@ export function AdminPanel({ state, dispatch, t }) {
                         <th>Groom</th>
                         <th>Married Date</th>
                         <th>Type</th>
+                        <th>Testimonial</th>
                       </tr></thead>
                       <tbody>
                         {state.marriages.map(m => {
-                          const bride = state.profiles.find(p => p.id === m.brideId);
-                          const groom = state.profiles.find(p => p.id === m.groomId);
+                          const bride = m.brideId ? state.profiles.find(p => p.id === m.brideId) : null;
+                          const groom = m.groomId ? state.profiles.find(p => p.id === m.groomId) : null;
+                          const testimonial = bride?.marriage_feedback || groom?.marriage_feedback || "";
                           return (
                             <tr key={m.id}>
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <div className="avatar avatar-sm avatar-bride">{bride?.avatar || "?"}</div>
+                                  <div className="avatar avatar-sm avatar-bride" style={{ opacity: bride ? 1 : 0.5 }}>
+                                    {bride?.avatar || "✕"}
+                                  </div>
                                   <div>
-                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{bride?.name || "—"}</div>
-
-                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{bride?.name || "—"}</div>
-
-                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{bride?.name || "—"}</div>
-                                    <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{bride?.profile_id}</div>
+                                    <div style={{ fontWeight: 600, fontSize: 13, color: bride ? "inherit" : "var(--clr-text-muted)" }}>
+                                      {bride ? bride.name : "Married Out of Matrimony"}
+                                    </div>
+                                    {bride && <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{bride.profile_id}</div>}
                                   </div>
                                 </div>
                               </td>
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <div className="avatar avatar-sm avatar-groom">{groom?.avatar || "?"}</div>
+                                  <div className="avatar avatar-sm avatar-groom" style={{ opacity: groom ? 1 : 0.5 }}>
+                                    {groom?.avatar || "✕"}
+                                  </div>
                                   <div>
-                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{groom?.name || "—"}</div>
-                                    <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{groom?.profile_id}</div>
+                                    <div style={{ fontWeight: 600, fontSize: 13, color: groom ? "inherit" : "var(--clr-text-muted)" }}>
+                                      {groom ? groom.name : "Married Out of Matrimony"}
+                                    </div>
+                                    {groom && <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{groom.profile_id}</div>}
                                   </div>
                                 </div>
                               </td>
@@ -1120,6 +1456,9 @@ export function AdminPanel({ state, dispatch, t }) {
                                   : "—"}
                               </td>
                               <td><span className="badge badge-approved">{m.marriageType}</span></td>
+                              <td style={{ fontSize: 13, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={testimonial}>
+                                {testimonial ? `"${testimonial}"` : <span style={{ color: "var(--clr-text-muted)", fontStyle: "italic" }}>None</span>}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1421,155 +1760,547 @@ export function AdminPanel({ state, dispatch, t }) {
         )}
 
         {/* ── Reports ── */}
-        {adminTab === "reports" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+        {adminTab === "reports" && (() => {
+          const calcAge = (dob) => dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
 
-            {/* Gender distribution */}
-            <div className="card">
-              <div className="card-body" style={{ textAlign: "center", padding: 28 }}>
-                <Icon name="pieChart" size={36} style={{ color: "var(--clr-saffron)", marginBottom: 10 }} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Gender Distribution</h3>
-                <div style={{ display: "flex", justifyContent: "center", gap: 32 }}>
-                  <div>
-                    <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--clr-maroon)" }}>
-                      {state.profiles.filter(p => p.profile_type === "bride").length}
+          const brides = state.profiles.filter(p => p.profile_type === "bride");
+          const grooms = state.profiles.filter(p => p.profile_type === "groom");
+
+          const brideAges = brides.map(p => calcAge(p.dob)).filter(age => age !== null);
+          const groomAges = grooms.map(p => calcAge(p.dob)).filter(age => age !== null);
+
+          const brideAgeGroups = [
+            { label: "18 - 21", count: brideAges.filter(a => a >= 18 && a <= 21).length },
+            { label: "22 - 25", count: brideAges.filter(a => a >= 22 && a <= 25).length },
+            { label: "26 - 30", count: brideAges.filter(a => a >= 26 && a <= 30).length },
+            { label: "31 - 35", count: brideAges.filter(a => a >= 31 && a <= 35).length },
+            { label: "36+", count: brideAges.filter(a => a >= 36).length },
+          ];
+
+          const groomAgeGroups = [
+            { label: "21 - 25", count: groomAges.filter(a => a >= 21 && a <= 25).length },
+            { label: "26 - 30", count: groomAges.filter(a => a >= 26 && a <= 30).length },
+            { label: "31 - 35", count: groomAges.filter(a => a >= 31 && a <= 35).length },
+            { label: "36 - 40", count: groomAges.filter(a => a >= 36 && a <= 40).length },
+            { label: "41+", count: groomAges.filter(a => a >= 41).length },
+          ];
+
+          const communityMap = {};
+          state.profiles.forEach(p => {
+            const comm = p.community || "Arunattu Vellalar";
+            communityMap[comm] = (communityMap[comm] || 0) + 1;
+          });
+          const communityList = Object.entries(communityMap)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+
+          const brideMaritalGroups = [
+            { label: "Never Married", count: brides.filter(p => p.marital_status === "never_married" || p.marital_status === "single").length },
+            { label: "Divorced", count: brides.filter(p => p.marital_status === "divorced").length },
+            { label: "Widowed", count: brides.filter(p => p.marital_status === "widowed").length },
+            { label: "Not Specified", count: brides.filter(p => !p.marital_status).length },
+          ].filter(g => g.count > 0 || g.label !== "Not Specified");
+
+          const groomMaritalGroups = [
+            { label: "Never Married", count: grooms.filter(p => p.marital_status === "never_married" || p.marital_status === "single").length },
+            { label: "Divorced", count: grooms.filter(p => p.marital_status === "divorced").length },
+            { label: "Widowed", count: grooms.filter(p => p.marital_status === "widowed").length },
+            { label: "Not Specified", count: grooms.filter(p => !p.marital_status).length },
+          ].filter(g => g.count > 0 || g.label !== "Not Specified");
+
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+
+              {/* Gender distribution */}
+              <div className="card">
+                <div className="card-body" style={{ textAlign: "center", padding: 28 }}>
+                  <Icon name="pieChart" size={36} style={{ color: "var(--clr-saffron)", marginBottom: 10 }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Gender Distribution</h3>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 32 }}>
+                    <div>
+                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--clr-maroon)" }}>
+                        {brides.length}
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>Brides</div>
                     </div>
-                    <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>Brides</div>
+                    <div>
+                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "var(--font-display)", color: "#1a3a5c" }}>
+                        {grooms.length}
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>Grooms</div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "var(--font-display)", color: "#1a3a5c" }}>
-                      {state.profiles.filter(p => p.profile_type === "groom").length}
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>Grooms</div>
+                  <div style={{ marginTop: 16, height: 12, borderRadius: 6, overflow: "hidden", display: "flex" }}>
+                    <div style={{ flex: brides.length || 1, background: "var(--clr-maroon)" }} />
+                    <div style={{ flex: grooms.length || 1, background: "#1a3a5c" }} />
                   </div>
                 </div>
-                <div style={{ marginTop: 16, height: 12, borderRadius: 6, overflow: "hidden", display: "flex" }}>
-                  <div style={{ flex: state.profiles.filter(p => p.profile_type === "bride").length || 1, background: "var(--clr-maroon)" }} />
-                  <div style={{ flex: state.profiles.filter(p => p.profile_type === "groom").length || 1, background: "#1a3a5c" }} />
-                </div>
               </div>
-            </div>
 
-            {/* Status breakdown */}
-            <div className="card">
-              <div className="card-body" style={{ textAlign: "center", padding: 28 }}>
-                <Icon name="activity" size={36} style={{ color: "#1B7A3D", marginBottom: 10 }} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Profile Status Breakdown</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {[
-                    { label: t("active"), value: stats.active, color: "#1B7A3D", bg: "#E6F9EE" },
-                    { label: t("inactive"), value: stats.inactive, color: "#757575", bg: "#F5F5F5" },
-                    { label: "Pending", value: stats.pending, color: "#E65100", bg: "#FFF3E0" },
-                    { label: t("married"), value: stats.married, color: "#6B21A8", bg: "#F3E8FF" },
-                  ].map(s => (
-                    <div key={s.label} style={{ background: s.bg, borderRadius: 8, padding: "12px 8px" }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
-                      <div style={{ fontSize: 11, color: "var(--clr-text-muted)", marginTop: 2 }}>{s.label}</div>
+              {/* Age Distribution (Bride vs Groom) */}
+              <div className="card">
+                <div className="card-body" style={{ padding: 28 }}>
+                  <Icon name="calendar" size={36} style={{ color: "var(--clr-saffron)", marginBottom: 10, display: "block" }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Age Distribution</h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    {/* Brides Column */}
+                    <div>
+                      <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--clr-maroon)", marginBottom: 10, borderBottom: "1px solid var(--clr-border)", paddingBottom: 4 }}>Brides</h4>
+                      {(() => {
+                        const totalBrides = brideAges.length || 1;
+                        return brideAgeGroups.map(g => {
+                          const pct = Math.round((g.count / totalBrides) * 100);
+                          return (
+                            <div key={g.label} style={{ marginBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
+                                <span style={{ color: "var(--clr-text-muted)" }}>{g.label} yrs</span>
+                                <span style={{ fontWeight: 600 }}>{g.count} ({pct}%)</span>
+                              </div>
+                              <div style={{ height: 6, background: "var(--clr-surface-alt)", borderRadius: 3, overflow: "hidden" }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: "var(--clr-maroon)" }} />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Success metrics */}
-            <div className="card">
-              <div className="card-body" style={{ textAlign: "center", padding: 28 }}>
-                <Icon name="trendingUp" size={36} style={{ color: "var(--clr-success)", marginBottom: 10 }} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Success Metrics</h3>
-                <div style={{ fontSize: 40, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--clr-success)" }}>
-                  {state.marriages.length}
-                </div>
-                <div style={{ fontSize: 13, color: "var(--clr-text-muted)", marginBottom: 16 }}>Successful Marriages</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  {[
-                    { v: state.profiles.filter(p => p.approval_status === "approved").length, l: t("approved") },
-                    { v: state.profiles.filter(p => p.approval_status === "pending").length, l: "Pending" },
-                    { v: stats.newReg, l: String(t("newRegistrations")) + " (" + currentMonthName + ")" },
-                    { v: stats.total, l: "Total" },
-                  ].map(s => (
-                    <div key={s.l} style={{ background: "var(--clr-surface-alt)", borderRadius: 8, padding: 12 }}>
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-display)" }}>{s.v}</div>
-                      <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{s.l}</div>
+                    {/* Grooms Column */}
+                    <div>
+                      <h4 style={{ fontSize: 13, fontWeight: 600, color: "#1a3a5c", marginBottom: 10, borderBottom: "1px solid var(--clr-border)", paddingBottom: 4 }}>Grooms</h4>
+                      {(() => {
+                        const totalGrooms = groomAges.length || 1;
+                        return groomAgeGroups.map(g => {
+                          const pct = Math.round((g.count / totalGrooms) * 100);
+                          return (
+                            <div key={g.label} style={{ marginBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
+                                <span style={{ color: "var(--clr-text-muted)" }}>{g.label} yrs</span>
+                                <span style={{ fontWeight: 600 }}>{g.count} ({pct}%)</span>
+                              </div>
+                              <div style={{ height: 6, background: "var(--clr-surface-alt)", borderRadius: 3, overflow: "hidden" }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: "#1a3a5c" }} />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* District distribution */}
-            <div className="card">
-              <div className="card-body" style={{ padding: 28 }}>
-                <Icon name="barChart" size={36} style={{ color: "var(--clr-olive)", marginBottom: 10, display: "block" }} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>District Distribution</h3>
-                {(() => {
-                  const districts = [...new Set(state.profiles.map(p => p.district).filter(Boolean))];
-                  if (districts.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No data yet</div>;
-                  return districts.slice(0, 8).map(d => {
-                    const count = state.profiles.filter(p => p.district === d).length;
-                    const pct = Math.round((count / state.profiles.length) * 100);
-                    return (
-                      <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                        <div style={{ width: 90, fontSize: 12, textAlign: "right", color: "var(--clr-text-muted)" }}>{d}</div>
-                        <div style={{ flex: 1, height: 18, background: "var(--clr-surface-alt)", borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{ width: `${pct || 5}%`, height: "100%", background: "linear-gradient(90deg,var(--clr-saffron),var(--clr-gold))", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 5 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: "white" }}>{count}</span>
+              {/* Marital Status Distribution (Bride vs Groom) */}
+              <div className="card">
+                <div className="card-body" style={{ padding: 28 }}>
+                  <Icon name="heart" size={36} style={{ color: "var(--clr-saffron)", marginBottom: 10, display: "block" }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Marital Status</h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    {/* Brides Column */}
+                    <div>
+                      <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--clr-maroon)", marginBottom: 10, borderBottom: "1px solid var(--clr-border)", paddingBottom: 4 }}>Brides</h4>
+                      {(() => {
+                        const totalBrides = brides.length || 1;
+                        return brideMaritalGroups.map(g => {
+                          const pct = Math.round((g.count / totalBrides) * 100);
+                          return (
+                            <div key={g.label} style={{ marginBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
+                                <span style={{ color: "var(--clr-text-muted)" }}>{g.label}</span>
+                                <span style={{ fontWeight: 600 }}>{g.count} ({pct}%)</span>
+                              </div>
+                              <div style={{ height: 6, background: "var(--clr-surface-alt)", borderRadius: 3, overflow: "hidden" }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: "var(--clr-maroon)" }} />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {/* Grooms Column */}
+                    <div>
+                      <h4 style={{ fontSize: 13, fontWeight: 600, color: "#1a3a5c", marginBottom: 10, borderBottom: "1px solid var(--clr-border)", paddingBottom: 4 }}>Grooms</h4>
+                      {(() => {
+                        const totalGrooms = grooms.length || 1;
+                        return groomMaritalGroups.map(g => {
+                          const pct = Math.round((g.count / totalGrooms) * 100);
+                          return (
+                            <div key={g.label} style={{ marginBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
+                                <span style={{ color: "var(--clr-text-muted)" }}>{g.label}</span>
+                                <span style={{ fontWeight: 600 }}>{g.count} ({pct}%)</span>
+                              </div>
+                              <div style={{ height: 6, background: "var(--clr-surface-alt)", borderRadius: 3, overflow: "hidden" }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: "#1a3a5c" }} />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Community Distribution */}
+              <div className="card">
+                <div className="card-body" style={{ padding: 28 }}>
+                  <Icon name="globe" size={36} style={{ color: "var(--clr-saffron)", marginBottom: 10, display: "block" }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Community Distribution</h3>
+                  {(() => {
+                    if (communityList.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No data yet</div>;
+                    const totalProfiles = state.profiles.length || 1;
+                    return communityList.slice(0, 8).map(c => {
+                      const pct = Math.round((c.count / totalProfiles) * 100);
+                      return (
+                        <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <div style={{ width: 110, fontSize: 12, textAlign: "right", color: "var(--clr-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.name}>
+                            {c.name}
+                          </div>
+                          <div style={{ flex: 1, height: 18, background: "var(--clr-surface-alt)", borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ width: `${pct || 5}%`, height: "100%", background: "linear-gradient(90deg, #a855f7, #7e22ce)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 5 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "white" }}>{c.count}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  });
-                })()}
+                      );
+                    });
+                  })()}
+                </div>
               </div>
-            </div>
 
-            {/* Education distribution */}
-            <div className="card">
-              <div className="card-body" style={{ padding: 28 }}>
-                <Icon name="award" size={36} style={{ color: "var(--clr-gold)", marginBottom: 10, display: "block" }} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Education Distribution</h3>
-                {(() => {
-                  const edus = [...new Set(state.profiles.map(p => p.education).filter(Boolean))];
-                  if (edus.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No data yet</div>;
-                  return edus.slice(0, 8).map(edu => {
-                    const count = state.profiles.filter(p => p.education === edu).length;
-                    return (
-                      <div key={edu} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, fontSize: 13 }}>
-                        <span style={{ color: "var(--clr-text-muted)" }}>{edu}</span>
-                        <span style={{ fontWeight: 600, background: "var(--clr-surface-alt)", padding: "1px 8px", borderRadius: 8 }}>{count}</span>
+              {/* Status breakdown */}
+              <div className="card">
+                <div className="card-body" style={{ textAlign: "center", padding: 28 }}>
+                  <Icon name="activity" size={36} style={{ color: "#1B7A3D", marginBottom: 10 }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Profile Status Breakdown</h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {[
+                      { label: t("active"), value: stats.active, color: "#1B7A3D", bg: "#E6F9EE" },
+                      { label: t("inactive"), value: stats.inactive, color: "#757575", bg: "#F5F5F5" },
+                      { label: "Pending", value: stats.pending, color: "#E65100", bg: "#FFF3E0" },
+                      { label: t("married"), value: stats.married, color: "#6B21A8", bg: "#F3E8FF" },
+                    ].map(s => (
+                      <div key={s.label} style={{ background: s.bg, borderRadius: 8, padding: "12px 8px" }}>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+                        <div style={{ fontSize: 11, color: "var(--clr-text-muted)", marginTop: 2 }}>{s.label}</div>
                       </div>
-                    );
-                  });
-                })()}
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Pending wait analysis */}
-            <div className="card">
-              <div className="card-body" style={{ padding: 28 }}>
-                <Icon name="eye" size={36} style={{ color: "#F57F17", marginBottom: 10, display: "block" }} />
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Pending Wait Analysis</h3>
-                {(() => {
-                  const pending = state.profiles.filter(p => p.approval_status === "pending" && p.created_at);
-                  if (pending.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No pending profiles</div>;
-                  const buckets = [
-                    { label: t("todayLabel"), color: "#1B7A3D", count: pending.filter(p => Math.floor((Date.now() - new Date(p.created_at)) / 86400000) < 1).length },
-                    { label: "1-3 days", color: "#E65100", count: pending.filter(p => { const d = Math.floor((Date.now() - new Date(p.created_at)) / 86400000); return d >= 1 && d < 3; }).length },
-                    { label: "3-7 days", color: "#C62828", count: pending.filter(p => { const d = Math.floor((Date.now() - new Date(p.created_at)) / 86400000); return d >= 3 && d < 7; }).length },
-                    { label: "7+ days", color: "#6A1B9A", count: pending.filter(p => Math.floor((Date.now() - new Date(p.created_at)) / 86400000) >= 7).length },
-                  ];
-                  return buckets.map(b => (
-                    <div key={b.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <span style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>{b.label}</span>
+              {/* Success metrics */}
+              <div className="card">
+                <div className="card-body" style={{ textAlign: "center", padding: 28 }}>
+                  <Icon name="trendingUp" size={36} style={{ color: "var(--clr-success)", marginBottom: 10 }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Success Metrics</h3>
+                  <div style={{ fontSize: 40, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--clr-success)" }}>
+                    {state.marriages.length}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--clr-text-muted)", marginBottom: 16 }}>Successful Marriages</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {[
+                      { v: state.profiles.filter(p => p.approval_status === "approved").length, l: t("approved") },
+                      { v: state.profiles.filter(p => p.approval_status === "pending").length, l: "Pending" },
+                      { v: stats.newReg, l: String(t("newRegistrations")) + " (" + currentMonthName + ")" },
+                      { v: stats.total, l: "Total" },
+                    ].map(s => (
+                      <div key={s.l} style={{ background: "var(--clr-surface-alt)", borderRadius: 8, padding: 12 }}>
+                        <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-display)" }}>{s.v}</div>
+                        <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Country distribution */}
+              <div className="card">
+                <div className="card-body" style={{ padding: 28 }}>
+                  <Icon name="globe" size={36} style={{ color: "var(--clr-olive)", marginBottom: 10, display: "block" }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Country Distribution</h3>
+                  {(() => {
+                    const countries = [...new Set(state.profiles.map(p => p.country || "India"))];
+                    if (countries.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No data yet</div>;
+                    return countries.slice(0, 8).map(c => {
+                      const count = state.profiles.filter(p => (p.country || "India") === c).length;
+                      const pct = Math.round((count / state.profiles.length) * 100);
+                      return (
+                        <div key={c} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <div style={{ width: 90, fontSize: 12, textAlign: "right", color: "var(--clr-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c}>{c}</div>
+                          <div style={{ flex: 1, height: 18, background: "var(--clr-surface-alt)", borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ width: `${pct || 5}%`, height: "100%", background: "linear-gradient(90deg,var(--clr-saffron),var(--clr-gold))", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 5 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "white" }}>{count}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Education distribution */}
+              <div className="card">
+                <div className="card-body" style={{ padding: 28 }}>
+                  <Icon name="award" size={36} style={{ color: "var(--clr-gold)", marginBottom: 10, display: "block" }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Education Distribution</h3>
+                  {(() => {
+                    const edus = [...new Set(state.profiles.map(p => p.education).filter(Boolean))];
+                    if (edus.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No data yet</div>;
+                    return edus.slice(0, 8).map(edu => {
+                      const count = state.profiles.filter(p => p.education === edu).length;
+                      return (
+                        <div key={edu} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, fontSize: 13 }}>
+                          <span style={{ color: "var(--clr-text-muted)" }}>{getEducationLabel(edu)}</span>
+                          <span style={{ fontWeight: 600, background: "var(--clr-surface-alt)", padding: "1px 8px", borderRadius: 8 }}>{count}</span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Pending wait analysis */}
+              <div className="card">
+                <div className="card-body" style={{ padding: 28 }}>
+                  <Icon name="eye" size={36} style={{ color: "#F57F17", marginBottom: 10, display: "block" }} />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Pending Wait Analysis</h3>
+                  {(() => {
+                    const pending = state.profiles.filter(p => p.approval_status === "pending" && p.created_at);
+                    if (pending.length === 0) return <div style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>No pending profiles</div>;
+                    const buckets = [
+                      { label: t("todayLabel"), color: "#1B7A3D", count: pending.filter(p => Math.floor((Date.now() - new Date(p.created_at)) / 86400000) < 1).length },
+                      { label: "1-3 days", color: "#E65100", count: pending.filter(p => { const d = Math.floor((Date.now() - new Date(p.created_at)) / 86400000); return d >= 1 && d < 3; }).length },
+                      { label: "3-7 days", color: "#C62828", count: pending.filter(p => { const d = Math.floor((Date.now() - new Date(p.created_at)) / 86400000); return d >= 3 && d < 7; }).length },
+                      { label: "7+ days", color: "#6A1B9A", count: pending.filter(p => Math.floor((Date.now() - new Date(p.created_at)) / 86400000) >= 7).length },
+                    ];
+                    return buckets.map(b => (
+                      <div key={b.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <span style={{ fontSize: 13, color: "var(--clr-text-muted)" }}>{b.label}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: Math.max(b.count * 20, 4), height: 8, borderRadius: 4, background: b.color }} />
+                          <span style={{ fontWeight: 700, fontSize: 13, color: b.color, minWidth: 20 }}>{b.count}</span>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
+
+        {/* ── Export ── */}
+        {adminTab === "export" && (
+          <div className="card animate-in" style={{ maxWidth: 800, margin: "0 auto" }}>
+            <div className="card-body" style={{ padding: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, borderBottom: "1px solid var(--clr-border)", paddingBottom: 16 }}>
+                <Icon name="download" size={32} style={{ color: "var(--clr-saffron)" }} />
+                <div>
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700 }}>Export Matrimony Profiles</h3>
+                  <p style={{ fontSize: 13, color: "var(--clr-text-muted)", marginTop: 2 }}>Select a dataset and the specific columns you want to export to Excel (CSV format).</p>
+                </div>
+              </div>
+
+              {/* Step 1: Filter Selection */}
+              <div style={{ marginBottom: 28 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--clr-text-body)", marginBottom: 12 }}>1. Choose Profile Dataset</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
+                  {[
+                    { id: "all", label: "All Profiles", count: state.profiles.filter(p => p.approval_status === "approved").length },
+                    {
+                      id: "current_month",
+                      label: "Current Month Reg",
+                      count: state.profiles.filter(p => {
+                        if (p.approval_status !== "approved" || !p.created_at) return false;
+                        const d = new Date(p.created_at);
+                        const now = new Date();
+                        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+                      }).length,
+                    },
+                    { id: "brides", label: "Brides Only", count: state.profiles.filter(p => p.approval_status === "approved" && p.profile_type === "bride").length },
+                    { id: "grooms", label: "Grooms Only", count: state.profiles.filter(p => p.approval_status === "approved" && p.profile_type === "groom").length },
+                  ].map(f => (
+                    <label key={f.id} style={{
+                      display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px",
+                      background: exportFilter === f.id ? "var(--clr-surface-alt)" : "transparent",
+                      border: `2px solid ${exportFilter === f.id ? "var(--clr-saffron)" : "var(--clr-border)"}`,
+                      borderRadius: 10, cursor: "pointer", transition: "all 0.2s",
+                    }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: Math.max(b.count * 20, 4), height: 8, borderRadius: 4, background: b.color }} />
-                        <span style={{ fontWeight: 700, fontSize: 13, color: b.color, minWidth: 20 }}>{b.count}</span>
+                        <input type="radio" name="exportFilter" checked={exportFilter === f.id} onChange={() => setExportFilter(f.id)} style={{ cursor: "pointer" }} />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{f.label}</span>
                       </div>
-                    </div>
-                  ));
-                })()}
+                      <span style={{ fontSize: 11, color: "var(--clr-text-muted)", marginLeft: 20 }}>{f.count} profiles</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
 
+              {/* Step 2: Columns Selection */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--clr-text-body)" }}>2. Select Columns to Export</h4>
+                  
+                  {/* Preset quick buttons */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {[
+                      {
+                        label: "All Details",
+                        cols: {
+                          profile_id: true, name: true, profile_type: true, dob: true, age: true, marital_status: true,
+                          whatsapp_code: true, whatsapp_num: true, contact_code: true, contact_num: true, email: true, community: true, kothiram: true, native_place: true,
+                          district: true, state: true, country: true, living_country: true, living_state: true, living_district: true,
+                          birth_place: true, birth_time: true, rasi: true, natchathiram: true, patham: true, dosham: true,
+                          sevvai_position: true, ragu_position: true, kedhu_position: true,
+                          education: true, occupation: true, salary: true, father_name: true, father_kothiram: true, father_occupation: true,
+                          father_mobile_code: true, father_mobile_num: true, father_whatsapp_code: true, father_whatsapp_num: true,
+                          mother_name: true, mother_kothiram: true, mother_occupation: true,
+                          mother_mobile_code: true, mother_mobile_num: true, mother_whatsapp_code: true, mother_whatsapp_num: true,
+                          about_me: true, expectations: true, created_at: true,
+                        },
+                      },
+                      {
+                        label: "Basic Info",
+                        cols: {
+                          profile_id: true, name: true, profile_type: true, dob: true, age: true, marital_status: true,
+                          whatsapp_code: false, whatsapp_num: false, contact_code: false, contact_num: false, email: false, community: true, kothiram: true, native_place: false,
+                          district: false, state: false, country: false, living_country: false, living_state: false, living_district: false,
+                          birth_place: false, birth_time: false, rasi: false, natchathiram: false, patham: false, dosham: false,
+                          sevvai_position: false, ragu_position: false, kedhu_position: false,
+                          education: false, occupation: false, salary: false, father_name: false, father_kothiram: false, father_occupation: false,
+                          father_mobile_code: false, father_mobile_num: false, father_whatsapp_code: false, father_whatsapp_num: false,
+                          mother_name: false, mother_kothiram: false, mother_occupation: false,
+                          mother_mobile_code: false, mother_mobile_num: false, mother_whatsapp_code: false, mother_whatsapp_num: false,
+                          about_me: false, expectations: false, created_at: false,
+                        },
+                      },
+                      {
+                        label: "Contact Details",
+                        cols: {
+                          profile_id: true, name: true, profile_type: true, dob: false, age: false, marital_status: false,
+                          whatsapp_code: true, whatsapp_num: true, contact_code: true, contact_num: true, email: true, community: false, kothiram: false, native_place: false,
+                          district: false, state: false, country: false, living_country: false, living_state: false, living_district: false,
+                          birth_place: false, birth_time: false, rasi: false, natchathiram: false, patham: false, dosham: false,
+                          sevvai_position: false, ragu_position: false, kedhu_position: false,
+                          education: false, occupation: false, salary: false, father_name: false, father_kothiram: false, father_occupation: false,
+                          father_mobile_code: true, father_mobile_num: true, father_whatsapp_code: true, father_whatsapp_num: true,
+                          mother_name: false, mother_kothiram: false, mother_occupation: false,
+                          mother_mobile_code: true, mother_mobile_num: true, mother_whatsapp_code: true, mother_whatsapp_num: true,
+                          about_me: false, expectations: false, created_at: false,
+                        },
+                      },
+                      {
+                        label: "Horoscopes",
+                        cols: {
+                          profile_id: true, name: true, profile_type: true, dob: false, age: false, marital_status: false,
+                          whatsapp_code: false, whatsapp_num: false, contact_code: false, contact_num: false, email: false, community: false, kothiram: false, native_place: false,
+                          district: false, state: false, country: false, living_country: false, living_state: false, living_district: false,
+                          birth_place: false, birth_time: false, rasi: true, natchathiram: true, patham: true, dosham: true,
+                          sevvai_position: true, ragu_position: true, kedhu_position: true,
+                          education: false, occupation: false, salary: false, father_name: false, father_kothiram: false, father_occupation: false,
+                          father_mobile_code: false, father_mobile_num: false, father_whatsapp_code: false, father_whatsapp_num: false,
+                          mother_name: false, mother_kothiram: false, mother_occupation: false,
+                          mother_mobile_code: false, mother_mobile_num: false, mother_whatsapp_code: false, mother_whatsapp_num: false,
+                          about_me: false, expectations: false, created_at: false,
+                        },
+                      },
+                      {
+                        label: "Clear All",
+                        cols: {
+                          profile_id: false, name: false, profile_type: false, dob: false, age: false, marital_status: false,
+                          whatsapp_code: false, whatsapp_num: false, contact_code: false, contact_num: false, email: false, community: false, kothiram: false, native_place: false,
+                          district: false, state: false, country: false, living_country: false, living_state: false, living_district: false,
+                          birth_place: false, birth_time: false, rasi: false, natchathiram: false, patham: false, dosham: false,
+                          sevvai_position: false, ragu_position: false, kedhu_position: false,
+                          education: false, occupation: false, salary: false, father_name: false, father_kothiram: false, father_occupation: false,
+                          father_mobile_code: false, father_mobile_num: false, father_whatsapp_code: false, father_whatsapp_num: false,
+                          mother_name: false, mother_kothiram: false, mother_occupation: false,
+                          mother_mobile_code: false, mother_mobile_num: false, mother_whatsapp_code: false, mother_whatsapp_num: false,
+                          about_me: false, expectations: false, created_at: false,
+                        },
+                      },
+                    ].map(p => (
+                      <button key={p.label} className="btn btn-sm btn-secondary" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => setExportColumns(p.cols)}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{
+                  display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10,
+                  background: "var(--clr-surface-alt)", padding: 20, borderRadius: 10, border: "1px solid var(--clr-border)",
+                }}>
+                  {[
+                    { id: "profile_id", label: "Profile ID" },
+                    { id: "name", label: "Name" },
+                    { id: "profile_type", label: "Gender" },
+                    { id: "dob", label: "Date of Birth" },
+                    { id: "age", label: "Age" },
+                    { id: "marital_status", label: "Marital Status" },
+                    { id: "whatsapp_code", label: "WhatsApp Country Code" },
+                    { id: "whatsapp_num", label: "WhatsApp Mobile Number" },
+                    { id: "contact_code", label: "Contact Country Code" },
+                    { id: "contact_num", label: "Contact Mobile Number" },
+                    { id: "email", label: "Email Address" },
+                    { id: "community", label: "Community (Caste)" },
+                    { id: "kothiram", label: "Kothiram" },
+                    { id: "native_place", label: "Native Place" },
+                    { id: "district", label: "District" },
+                    { id: "state", label: "State" },
+                    { id: "country", label: "Country" },
+                    { id: "living_country", label: "Living Country" },
+                    { id: "living_state", label: "Living State" },
+                    { id: "living_district", label: "Living District" },
+                    { id: "birth_place", label: "Birth Place" },
+                    { id: "birth_time", label: "Birth Time" },
+                    { id: "rasi", label: "Rasi" },
+                    { id: "natchathiram", label: "Natchathiram" },
+                    { id: "patham", label: "Patham" },
+                    { id: "dosham", label: "Dosham" },
+                    { id: "sevvai_position", label: "Sevvai Position" },
+                    { id: "ragu_position", label: "Ragu Position" },
+                    { id: "kedhu_position", label: "Kedhu Position" },
+                    { id: "education", label: "Education" },
+                    { id: "occupation", label: "Occupation" },
+                    { id: "salary", label: "Salary" },
+                    { id: "father_name", label: "Father's Name" },
+                    { id: "father_kothiram", label: "Father's Kothiram" },
+                    { id: "father_occupation", label: "Father's Occupation" },
+                    { id: "father_mobile_code", label: "Father Mobile Code" },
+                    { id: "father_mobile_num", label: "Father Mobile Number" },
+                    { id: "father_whatsapp_code", label: "Father WhatsApp Code" },
+                    { id: "father_whatsapp_num", label: "Father WhatsApp Number" },
+                    { id: "mother_name", label: "Mother's Name" },
+                    { id: "mother_kothiram", label: "Mother's Kothiram" },
+                    { id: "mother_occupation", label: "Mother's Occupation" },
+                    { id: "mother_mobile_code", label: "Mother Mobile Code" },
+                    { id: "mother_mobile_num", label: "Mother Mobile Number" },
+                    { id: "mother_whatsapp_code", label: "Mother WhatsApp Code" },
+                    { id: "mother_whatsapp_num", label: "Mother WhatsApp Number" },
+                    { id: "about_me", label: "About Me" },
+                    { id: "expectations", label: "Expectations" },
+                    { id: "created_at", label: "Registration Date" },
+                  ].map(col => (
+                    <label key={col.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                      <input type="checkbox" checked={!!exportColumns[col.id]} onChange={e => setExportColumns(prev => ({ ...prev, [col.id]: e.target.checked }))} style={{ cursor: "pointer" }} />
+                      <span>{col.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="btn btn-primary" onClick={handleExport} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 24px" }}>
+                  <Icon name="download" size={16} /> Export to Excel
+                </button>
+              </div>
+
+            </div>
           </div>
         )}
 

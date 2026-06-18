@@ -1,4 +1,5 @@
 import { Icon } from "./Icon.jsx";
+import { getEducationLabel } from "../constants/options.js";
 
 export function ProfileCard({ profile, state, dispatch, t, compact = false }) {
   const isShortlisted = state.shortlisted.includes(profile.id);
@@ -16,7 +17,7 @@ export function ProfileCard({ profile, state, dispatch, t, compact = false }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{state.user ? profile.name : "Name Hidden"}</div>
             <div style={{ fontSize: 12, color: "var(--clr-text-muted)" }}>
-              {profile.age} {t("yrs")} · {profile.education} · {profile.district}
+              {profile.age} {t("yrs")} · {getEducationLabel(profile.education)} · {profile.district}
             </div>
           </div>
           <span className={`badge badge-${profile.profile_type}`}>{t(profile.profile_type)}</span>
@@ -65,7 +66,7 @@ export function ProfileCard({ profile, state, dispatch, t, compact = false }) {
           <span style={{ color: "var(--clr-border)" }}>·</span>
           <span>{profile.height}</span>
           <span style={{ color: "var(--clr-border)" }}>·</span>
-          <span>{profile.education}</span>
+          <span>{getEducationLabel(profile.education)}</span>
         </div>
         <div style={{ fontSize: 13, color: "var(--clr-text-muted)", marginTop: 4 }}>
           {profile.occupation} · {profile.district}

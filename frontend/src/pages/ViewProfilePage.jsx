@@ -2,24 +2,8 @@ import { useState, useEffect } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { RASIS, NATCHATHIRAMS, DOSHAM_TYPES, LAGNAM_POSITIONS } from "../constants/jothidam.js";
 import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
-import { EDUCATIONS } from "../constants/options.js";
+import { getEducationLabel } from "../constants/options.js";
 import { formatPhone, waLink } from "../components/PhoneInput.jsx";
-
-// Map raw DB marital_status values → display labels
-const MARITAL_STATUS_LABELS = {
-  never_married: "Never Married",
-  single:        "Never Married",
-  divorced:      "Divorced",
-  widowed:       "Widowed",
-  married:       "Married",
-};
-
-/** Lookup education label from value (e.g. "bachelors_arts" → "Bachelor's — Arts / Science / Commerce") */
-function educationLabel(val) {
-  if (!val) return null;
-  const found = EDUCATIONS.find(e => e.value === val);
-  return found ? found.label : val;
-}
 
 /** Compute age dynamically from DOB string — always uses today's date */
 function calcAge(dob) {
@@ -237,8 +221,8 @@ export function ViewProfilePage({ state, dispatch, t }) {
             [t("birthTime"),       fmtTime(p.birth_time)],
             [t("birthPlace"),      p.birth_place || "—"],
             [t("height"),        p.height || "—"],
-            [t("maritalStatus"), p.marital_status ? (MARITAL_STATUS_LABELS[p.marital_status] || p.marital_status) : "—"],
-            [t("education"),     educationLabel(p.education) || "—"],
+            [t("maritalStatus"), p.marital_status ? t(p.marital_status) : "—"],
+            [t("education"),     getEducationLabel(p.education) || "—"],
             [t("occupation"),    p.occupation || "—"],
             [t("salary"),        p.salary ? `₹${p.salary} ${t("lpa")}` : "—"],
           ].filter(([, v]) => v && v !== "—"),
@@ -381,12 +365,38 @@ export function ViewProfilePage({ state, dispatch, t }) {
                 {[
                   [t("fatherName"),           p.father_name],
                   [t("fatherKothiram"),       kothiramLabel(p.father_kothiram)],
-                  ["Father's Mobile",         p.father_mobile ? formatPhone(p.father_mobile) : null],
-                  ["Father's WhatsApp",       p.father_whatsapp ? formatPhone(p.father_whatsapp) : (p.father_mobile ? formatPhone(p.father_mobile) + " (Same)" : null)],
+                  ["Father's Mobile", p.father_mobile ? (
+                    showContactDetails ? (
+                      <a href={`tel:${formatPhone(p.father_mobile).replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none" }}>
+                        📱 {formatPhone(p.father_mobile)}
+                      </a>
+                    ) : "🔒 Hidden"
+                  ) : null],
+                  ["Father's WhatsApp", (p.father_whatsapp || p.father_mobile) ? (
+                    showContactDetails ? (
+                      <a href={waLink(p.father_whatsapp || p.father_mobile)} target="_blank" rel="noopener noreferrer"
+                        style={{ color: "#16a34a", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        💬 {formatPhone(p.father_whatsapp || p.father_mobile)} {!p.father_whatsapp ? " (Same)" : ""}
+                      </a>
+                    ) : "🔒 Hidden"
+                  ) : null],
                   [t("motherName"),           p.mother_name],
                   [t("motherKothiram"),       kothiramLabel(p.mother_kothiram)],
-                  ["Mother's Mobile",         p.mother_mobile ? formatPhone(p.mother_mobile) : null],
-                  ["Mother's WhatsApp",       p.mother_whatsapp ? formatPhone(p.mother_whatsapp) : (p.mother_mobile ? formatPhone(p.mother_mobile) + " (Same)" : null)],
+                  ["Mother's Mobile", p.mother_mobile ? (
+                    showContactDetails ? (
+                      <a href={`tel:${formatPhone(p.mother_mobile).replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none" }}>
+                        📱 {formatPhone(p.mother_mobile)}
+                      </a>
+                    ) : "🔒 Hidden"
+                  ) : null],
+                  ["Mother's WhatsApp", (p.mother_whatsapp || p.mother_mobile) ? (
+                    showContactDetails ? (
+                      <a href={waLink(p.mother_whatsapp || p.mother_mobile)} target="_blank" rel="noopener noreferrer"
+                        style={{ color: "#16a34a", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        💬 {formatPhone(p.mother_whatsapp || p.mother_mobile)} {!p.mother_whatsapp ? " (Same)" : ""}
+                      </a>
+                    ) : "🔒 Hidden"
+                  ) : null],
                 ].filter(([, v]) => v !== null).map(([label, val]) => (
                   <div key={label}>
                     <div style={{ fontSize: 12, color: "var(--clr-text-muted)", marginBottom: 2 }}>{label}</div>
