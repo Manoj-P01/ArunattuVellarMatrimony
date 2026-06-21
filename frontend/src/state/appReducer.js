@@ -7,14 +7,20 @@ const VIEWED_KEY    = "avs_viewed";
 function loadSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
 }
-function saveSession(user, isAdmin) {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ user, isAdmin })); } catch {}
+function saveSession(user, isAdmin, token) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ user, isAdmin }));
+    if (token) {
+      localStorage.setItem("avs_jwt", token);
+    }
+  } catch {}
 }
 function clearSession() {
   try {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(INTERESTS_KEY);
     localStorage.removeItem(SHORTLIST_KEY);
+    localStorage.removeItem("avs_jwt");
   } catch {}
 }
 function loadInterests() {
@@ -233,7 +239,7 @@ export function appReducer(state, action) {
 
     // ── Real OTP login result from /api/auth/login ───────────────────────
     case "LOGIN_SUCCESS": {
-      const { user: apiUser, profile: apiProfile, forceRole } = action.payload;
+      const { user: apiUser, profile: apiProfile, forceRole, token } = action.payload;
       // forceRole: "admin" | "member" — set by dual-role picker when user is both admin + bride/groom
 
       // Spread the full DB record so every field (including future ones) flows through.
@@ -263,7 +269,7 @@ export function appReducer(state, action) {
         ? (forceRole === "admin" || forceRole === "super_admin")
         : (apiUser.role === "admin" || apiUser.role === "super_admin");
 
-      saveSession(user, actingAsAdmin);
+      saveSession(user, actingAsAdmin, token);
 
       // Merge profile into profiles list (add if not already there)
       const updatedProfiles = newProfile
@@ -292,7 +298,7 @@ export function appReducer(state, action) {
           isAdmin: false,
         };
       }
-      const { user: apiUser, profile: apiProfile } = action.payload;
+      const { user: apiUser, profile: apiProfile, token } = action.payload;
 
       // Spread full DB record — every field the API returns flows through automatically.
       const restoredProfile = apiProfile
@@ -323,7 +329,7 @@ export function appReducer(state, action) {
         ? (savedSession.isAdmin ?? (apiUser.role === "admin" || apiUser.role === "super_admin"))  // honour saved choice
         : (apiUser.role === "admin" || apiUser.role === "super_admin");
 
-      saveSession(user, actingAsAdmin);
+      saveSession(user, actingAsAdmin, token);
 
       const updatedProfiles = restoredProfile
         ? [
@@ -399,7 +405,7 @@ export function appReducer(state, action) {
 
     // ── Registration: OTP verified + profile saved to Supabase ──────────
     case "COMPLETE_REGISTRATION": {
-      const { regData, dbProfile, dbUser } = action.payload;
+      const { regData, dbProfile, dbUser, token } = action.payload;
 
       // If dbProfile is provided, the data was saved to Supabase successfully.
       // Build a local profile object from the real DB record.
@@ -466,7 +472,7 @@ export function appReducer(state, action) {
         profile_id:   newProfile.profile_id,
       };
 
-      saveSession(user, false);
+      saveSession(user, false, token);
 
       const newNotif = {
         id:      Date.now(),

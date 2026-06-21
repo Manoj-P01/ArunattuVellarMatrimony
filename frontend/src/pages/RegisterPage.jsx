@@ -9,35 +9,63 @@ import { apiSendOtp, apiRegister } from "../api/client.js";
 
 // ── Height picker (ft & in OR cm) ─────────────────────────────────────────────
 function HeightPicker({ value, onChange }) {
-  const [unit, setUnit] = useState(() => (value || "").includes("cm") ? "cm" : "ft");
-  const [feet, setFeet] = useState(() => {
-    const m = (value || "").match(/^(\d+)'(\d+)"/);
-    return m ? m[1] : "5";
-  });
-  const [inches, setInches] = useState(() => {
-    const m = (value || "").match(/^(\d+)'(\d+)"/);
-    return m ? m[2] : "0";
-  });
-  const [cm, setCm] = useState(() => {
-    const m = (value || "").match(/^(\d+)\s*cm/);
-    return m ? m[1] : "160";
-  });
+  const parseHeight = useCallback((val) => {
+    if (!val) return { feet: "5", inches: "0", cm: "152", unit: "ft" };
+    const mFtIn = val.match(/^(\d+)\s*(?:ft|'|’)\s*(\d+)?\s*(?:in|")?/i);
+    if (mFtIn) {
+      const f = mFtIn[1];
+      const i = mFtIn[2] || "0";
+      const totalIn = parseInt(f) * 12 + parseInt(i);
+      const c = String(Math.round(totalIn * 2.54));
+      return { feet: f, inches: i, cm: c, unit: "ft" };
+    }
+    const mCm = val.match(/^(\d+)\s*cm/i);
+    if (mCm) {
+      const c = mCm[1];
+      const totalIn = Math.round(parseInt(c) / 2.54);
+      const f = String(Math.floor(totalIn / 12));
+      const i = String(totalIn % 12);
+      return { feet: f, inches: i, cm: c, unit: "cm" };
+    }
+    return { feet: "5", inches: "0", cm: "152", unit: "ft" };
+  }, []);
+
+  const parsed = parseHeight(value);
+
+  const [unit, setUnit] = useState(parsed.unit);
+  const [feet, setFeet] = useState(parsed.feet);
+  const [inches, setInches] = useState(parsed.inches);
+  const [cm, setCm] = useState(parsed.cm);
+
+  // Sync state if value changes from parent (e.g. reset/load)
+  useEffect(() => {
+    const p = parseHeight(value);
+    setUnit(p.unit);
+    setFeet(p.feet);
+    setInches(p.inches);
+    setCm(p.cm);
+  }, [value, parseHeight]);
 
   const emit = useCallback((u, f, i, c) => {
-    onChange(u === "ft" ? `${f}'${i}"` : `${c} cm`);
+    onChange(u === "ft" ? `${f}ft ${i}in` : `${c} cm`);
   }, [onChange]);
+
+  // Ensure default value is emitted when value is empty
+  useEffect(() => {
+    if (!value) {
+      emit(unit, feet, inches, cm);
+    }
+  }, [value, unit, feet, inches, cm, emit]);
 
   const handleUnit = (u) => {
     setUnit(u);
     if (u === "ft") {
-      // Convert cm → ft/in
-      const totalIn = Math.round(parseInt(cm || 160) / 2.54);
+      const totalIn = Math.round(parseInt(cm || 152) / 2.54);
       const f = String(Math.floor(totalIn / 12));
       const i = String(totalIn % 12);
       setFeet(f); setInches(i);
       emit("ft", f, i, cm);
     } else {
-      // Convert ft/in → cm
       const c = String(Math.round((parseInt(feet || 5) * 12 + parseInt(inches || 0)) * 2.54));
       setCm(c);
       emit("cm", feet, inches, c);
@@ -48,7 +76,7 @@ function HeightPicker({ value, onChange }) {
   const inchesOpts = Array.from({ length: 12 }, (_, i) => String(i));       // 0–11
 
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", width: "100%" }}>
       {/* Unit toggle */}
       <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--clr-border)", flexShrink: 0 }}>
         {["ft", "cm"].map(u => (
@@ -88,7 +116,20 @@ function HeightPicker({ value, onChange }) {
             onChange={e => { setCm(e.target.value); emit("cm", feet, inches, e.target.value); }}
             placeholder="e.g. 165"
           />
-          <span style={{ fontSize: 12, color: "var(--clr-text-muted)", whiteSpace: "nowrap" }}>cm</span>
+          <span style={{ fontSize: 12, color: "var(--clr-text-muted)", whiteSpace: "nowrap" }}>
+            cm = {(() => {
+              const val = parseInt(cm);
+              if (isNaN(val) || val <= 0) return "—";
+              const totalIn = val / 2.54;
+              let f = Math.floor(totalIn / 12);
+              let i = Math.round(totalIn % 12);
+              if (i === 12) {
+                f += 1;
+                i = 0;
+              }
+              return `${f}ft ${i}in`;
+            })()}
+          </span>
         </>
       )}
     </div>

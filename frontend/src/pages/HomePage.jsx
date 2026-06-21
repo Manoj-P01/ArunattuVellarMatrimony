@@ -22,6 +22,25 @@ export function HomePage({ state, dispatch, t }) {
     };
   }, []);
 
+  const myProfileType = state.user?.profile_type;
+  const oppositeGender = myProfileType === "bride" ? "groom" : myProfileType === "groom" ? "bride" : "";
+
+  let featuredProfiles = state.profiles.filter(p =>
+    p.approval_status === "approved" &&
+    (p.profile_status || "active") === "active" &&
+    !(state.user?.profileId && p.id === state.user.profileId)
+  );
+
+  if (state.user) {
+    if (myProfileType === "bride") {
+      featuredProfiles = featuredProfiles.filter(p => p.profile_type === "groom");
+    } else if (myProfileType === "groom") {
+      featuredProfiles = featuredProfiles.filter(p => p.profile_type === "bride");
+    }
+    // Recently added: sort by created_at descending
+    featuredProfiles = [...featuredProfiles].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }
+
   return (
     <div className="animate-in">
       {/* Hero */}
@@ -103,18 +122,45 @@ export function HomePage({ state, dispatch, t }) {
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, marginBottom: 24 }}>
             {t("featuredProfiles")}
           </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-            {state.profiles
-              .filter(p =>
-                p.approval_status === "approved" &&
-                (p.profile_status || "active") === "active" &&
-                !(state.user?.profileId && p.id === state.user.profileId)
-              )
-              .slice(0, 4)
-              .map(p => (
-              <ProfileCard key={p.id} profile={p} state={state} dispatch={dispatch} t={t} />
-            ))}
-          </div>
+          {featuredProfiles.length === 0 ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--clr-text-muted)", fontSize: 14 }}>
+              No matches found currently.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+              {featuredProfiles.slice(0, 4).map(p => (
+                <ProfileCard key={p.id} profile={p} state={state} dispatch={dispatch} t={t} />
+              ))}
+            </div>
+          )}
+
+          {state.user && (
+            <div style={{ textAlign: "center", marginTop: 32 }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  dispatch({ type: "RESET_FILTERS" });
+                  if (oppositeGender) {
+                    dispatch({ type: "UPDATE_FILTERS", payload: { type: oppositeGender } });
+                  }
+                  dispatch({ type: "SET_PAGE", payload: "search" });
+                }}
+                style={{
+                  padding: "10px 24px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  borderRadius: 30,
+                  boxShadow: "var(--shadow-sm)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  cursor: "pointer"
+                }}
+              >
+                <Icon name="search" size={16} /> Show More Profiles
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -139,64 +185,200 @@ export function HomePage({ state, dispatch, t }) {
               Read inspiring stories from our members who found their perfect match and shared their journey.
             </p>
 
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 20
-            }}>
-              {testimonials.map((test) => (
-                <div key={test.id} className="card animate-in" style={{
-                  padding: 24, position: "relative", display: "flex", flexDirection: "column",
-                  justifyContent: "space-between", borderLeft: "4px solid var(--clr-saffron)",
-                  boxShadow: "var(--shadow-sm)", background: "var(--clr-white)",
-                  cursor: "default"
-                }}>
-                  <div>
-                    <div style={{
-                      color: "rgba(229, 109, 37, 0.15)", fontSize: 48, fontFamily: "serif",
-                      position: "absolute", top: 10, right: 20, lineHeight: 1, pointerEvents: "none"
-                    }}>
-                      ”
-                    </div>
-                    <p style={{
-                      fontSize: 14, fontStyle: "italic", color: "var(--clr-text-body)",
-                      lineHeight: 1.6, marginBottom: 20, position: "relative", zIndex: 1
-                    }}>
-                      "{test.marriage_feedback}"
-                    </p>
-                  </div>
+            {(() => {
+              const shouldAnimate = testimonials.length > 3;
 
+              if (!shouldAnimate) {
+                return (
                   <div style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    borderTop: "1px solid var(--clr-border)", paddingTop: 16
+                    display: "flex",
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    gap: "20px",
+                    padding: "12px 0"
                   }}>
-                    <div className={`avatar avatar-sm avatar-${test.profile_type}`} style={{ fontWeight: 700, flexShrink: 0 }}>
-                      {test.avatar || test.name?.[0] || "?"}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--clr-text-title)" }}>
-                        {test.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--clr-text-muted)", marginTop: 2 }}>
-                        Married: {new Date(test.marriage_date).toLocaleDateString(state.lang === "ta" ? "ta-IN" : "en-US", {
-                          year: "numeric", month: "short", day: "numeric"
-                        })}
-                      </div>
-                      {test.partner_profile_id && (
-                        <div style={{
-                          display: "inline-flex", alignItems: "center", gap: 4,
-                          background: "linear-gradient(135deg, #FFF0F2, #FFE4E6)",
-                          color: "#E11D48", fontSize: 9, fontWeight: 700,
-                          padding: "1px 6px", borderRadius: 4, marginTop: 4
-                        }}>
-                          💑 Matched via AVS
+                    {testimonials.map((test) => (
+                      <div key={test.id} className="card animate-in" style={{
+                        width: "320px", padding: 24, position: "relative", display: "flex", flexDirection: "column",
+                        justifyContent: "space-between", borderLeft: "4px solid var(--clr-saffron)",
+                        boxShadow: "var(--shadow-sm)", background: "var(--clr-white)",
+                        cursor: "default", margin: 0
+                      }}>
+                        <div>
+                          <div style={{
+                            color: "rgba(229, 109, 37, 0.15)", fontSize: 48, fontFamily: "serif",
+                            position: "absolute", top: 10, right: 20, lineHeight: 1, pointerEvents: "none"
+                          }}>
+                            ”
+                          </div>
+                          <p style={{
+                            fontSize: 14, fontStyle: "italic", color: "var(--clr-text-body)",
+                            lineHeight: 1.6, marginBottom: 20, position: "relative", zIndex: 1
+                          }}>
+                            "{test.marriage_feedback}"
+                          </p>
+                          {test.marriage_photo && (
+                            <div style={{
+                              width: "100%",
+                              height: 180,
+                              overflow: "hidden",
+                              borderRadius: 6,
+                              marginBottom: 20,
+                              border: "1px solid var(--clr-border)"
+                            }}>
+                              <img 
+                                src={test.marriage_photo} 
+                                alt={`${test.name}'s marriage`} 
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover"
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 12,
+                          borderTop: "1px solid var(--clr-border)", paddingTop: 16
+                        }}>
+                          <div className={`avatar avatar-sm avatar-${test.profile_type}`} style={{ fontWeight: 700, flexShrink: 0 }}>
+                            {test.avatar || test.name?.[0] || "?"}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--clr-text-title)" }}>
+                              {test.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--clr-text-muted)", marginTop: 2 }}>
+                              Married: {new Date(test.marriage_date).toLocaleDateString(state.lang === "ta" ? "ta-IN" : "en-US", {
+                                year: "numeric", month: "short", day: "numeric"
+                              })}
+                            </div>
+                            {test.partner_profile_id && (
+                              <div style={{
+                                display: "inline-flex", alignItems: "center", gap: 4,
+                                background: "linear-gradient(135deg, #FFF0F2, #FFE4E6)",
+                                color: "#E11D48", fontSize: 9, fontWeight: 700,
+                                padding: "1px 6px", borderRadius: 4, marginTop: 4
+                              }}>
+                                💑 Matched via AVS
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              let list = testimonials;
+              if (testimonials.length > 0) {
+                while (list.length < 6) {
+                  list = [...list, ...testimonials];
+                }
+              }
+              const duplicatedTestimonials = [...list, ...list];
+
+              return (
+                <div style={{ overflow: "hidden", width: "100%", position: "relative", padding: "12px 0" }}>
+                  <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes avsMarquee {
+                      0% { transform: translate3d(0, 0, 0); }
+                      100% { transform: translate3d(-50%, 0, 0); }
+                    }
+                    .avs-marquee-track {
+                      display: flex;
+                      width: max-content;
+                      gap: 20px;
+                      animation: avsMarquee 35s linear infinite;
+                    }
+                    .avs-marquee-track:hover {
+                      animation-play-state: paused;
+                    }
+                    .avs-testimonial-card {
+                      width: 320px;
+                      flex-shrink: 0;
+                    }
+                  `}} />
+                  <div className="avs-marquee-track">
+                    {duplicatedTestimonials.map((test, index) => (
+                      <div key={`${test.id}-${index}`} className="card avs-testimonial-card animate-in" style={{
+                        padding: 24, position: "relative", display: "flex", flexDirection: "column",
+                        justifyContent: "space-between", borderLeft: "4px solid var(--clr-saffron)",
+                        boxShadow: "var(--shadow-sm)", background: "var(--clr-white)",
+                        cursor: "default", margin: 0
+                      }}>
+                        <div>
+                          <div style={{
+                            color: "rgba(229, 109, 37, 0.15)", fontSize: 48, fontFamily: "serif",
+                            position: "absolute", top: 10, right: 20, lineHeight: 1, pointerEvents: "none"
+                          }}>
+                            ”
+                          </div>
+                          <p style={{
+                            fontSize: 14, fontStyle: "italic", color: "var(--clr-text-body)",
+                            lineHeight: 1.6, marginBottom: 20, position: "relative", zIndex: 1
+                          }}>
+                            "{test.marriage_feedback}"
+                          </p>
+                          {test.marriage_photo && (
+                            <div style={{
+                              width: "100%",
+                              height: 180,
+                              overflow: "hidden",
+                              borderRadius: 6,
+                              marginBottom: 20,
+                              border: "1px solid var(--clr-border)"
+                            }}>
+                              <img 
+                                src={test.marriage_photo} 
+                                alt={`${test.name}'s marriage`} 
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover"
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 12,
+                          borderTop: "1px solid var(--clr-border)", paddingTop: 16
+                        }}>
+                          <div className={`avatar avatar-sm avatar-${test.profile_type}`} style={{ fontWeight: 700, flexShrink: 0 }}>
+                            {test.avatar || test.name?.[0] || "?"}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--clr-text-title)" }}>
+                              {test.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--clr-text-muted)", marginTop: 2 }}>
+                              Married: {new Date(test.marriage_date).toLocaleDateString(state.lang === "ta" ? "ta-IN" : "en-US", {
+                                year: "numeric", month: "short", day: "numeric"
+                              })}
+                            </div>
+                            {test.partner_profile_id && (
+                              <div style={{
+                                display: "inline-flex", alignItems: "center", gap: 4,
+                                background: "linear-gradient(135deg, #FFF0F2, #FFE4E6)",
+                                color: "#E11D48", fontSize: 9, fontWeight: 700,
+                                padding: "1px 6px", borderRadius: 4, marginTop: 4
+                              }}>
+                                💑 Matched via AVS
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
         </section>
       )}

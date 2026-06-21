@@ -20,6 +20,8 @@ const PROFILE_SELECT = `
   brother_count, brother_married_status, sister_count, sister_married_status,
   about_me, social_links, about_me_privacy, social_links_privacy,
   profile_status, approval_status, approved_by, approved_at,
+  got_married, marriage_date, partner_profile_id, marriage_feedback, marriage_photo, marriage_type,
+  testimonial_approved,
   created_at, updated_at
 `.trim();
 

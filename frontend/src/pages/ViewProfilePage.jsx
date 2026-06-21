@@ -20,7 +20,11 @@ const base = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://loca
 
 async function fetchProfilePhotos(profileId) {
   try {
-    const res = await fetch(`${base}/api/photos?profile_id=${profileId}`, { credentials: "include" });
+    const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
+    const res = await fetch(`${base}/api/photos?profile_id=${profileId}`, { 
+      credentials: "include",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
     const data = await res.json();
     return data.photos || [];
   } catch { return []; }

@@ -20,7 +20,16 @@ export async function POST(request) {
     const targetRole = role === "super_admin" ? "super_admin" : "admin";
 
     const token = createInviteToken(targetRole);
-    const origin = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:5173";
+    let origin = request.headers.get("origin") || request.headers.get("referer");
+    if (origin) {
+      try {
+        const urlObj = new URL(origin);
+        origin = urlObj.origin;
+      } catch (err) {}
+    }
+    if (!origin) {
+      origin = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:5173";
+    }
     const invite_url = `${origin}/admin?token=${token}`;
     const expires_at = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
 

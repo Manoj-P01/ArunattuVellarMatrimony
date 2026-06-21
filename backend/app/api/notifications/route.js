@@ -17,7 +17,7 @@ import { createClient } from "../../../utils/supabase/server.ts";
 export async function GET(request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient(cookieStore, request);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -72,7 +72,7 @@ export async function GET(request) {
 export async function PATCH(request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient(cookieStore, request);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {

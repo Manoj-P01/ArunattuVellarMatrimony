@@ -52,7 +52,8 @@ export async function GET() {
         father_name, father_kothiram, mother_name, mother_kothiram,
         brother_count, brother_married_status,
         sister_count, sister_married_status,
-        profile_status, approval_status, approved_by, approved_at,
+        got_married, marriage_date, partner_profile_id, marriage_feedback, marriage_photo, marriage_type,
+        testimonial_approved, profile_status, approval_status, approved_by, approved_at,
         created_at, updated_at
       `)
       .eq("user_id", user.id)

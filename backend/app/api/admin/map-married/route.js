@@ -48,14 +48,13 @@ export async function POST(request) {
     );
 
     const { data: marriage, error: marriageError } = await svc
-      .from("marriage")
+      .from("marriages")
       .insert({
         bride_profile_id:      bride_profile_id || null,
         groom_profile_id:      groom_profile_id || null,
-        partner_name:          partner_name     || null,
+        notes:                 JSON.stringify({ partner_name, married_via_matrimony }),
         married_date,
         marriage_type,
-        married_via_matrimony,
         mapped_by: admin.id,
       })
       .select()
@@ -141,18 +140,64 @@ export async function GET(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { data, error } = await svc
-      .from("marriage")
+    const { data: marriages, error: marriagesError } = await svc
+      .from("marriages")
       .select(`
-        id, married_date, marriage_type, married_via_matrimony, partner_name, created_at,
-        bride_profile:bride_profile_id (id, profile_id, name, district, marriage_feedback),
-        groom_profile:groom_profile_id (id, profile_id, name, district, marriage_feedback)
+        id, married_date, marriage_type, notes, mapped_by, created_at,
+        bride_profile_id, groom_profile_id
       `)
       .order("married_date", { ascending: false });
 
-    if (error) throw error;
+    if (marriagesError) throw marriagesError;
 
-    return NextResponse.json({ marriages: data || [] });
+    const profileIds = [...new Set(
+      (marriages || []).flatMap(m => [m.bride_profile_id, m.groom_profile_id]).filter(Boolean)
+    )];
+
+    let profilesMap = {};
+    if (profileIds.length > 0) {
+      const { data: profiles, error: profilesError } = await svc
+        .from("profiles")
+        .select("id, profile_id, name, district, marriage_feedback, marriage_photo, testimonial_approved")
+        .in("id", profileIds);
+
+      if (profilesError) throw profilesError;
+
+      profilesMap = (profiles || []).reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {});
+    }
+
+    const mappedMarriages = (marriages || []).map(m => {
+      let partner_name = null;
+      let married_via_matrimony = m.marriage_type === "matrimony";
+      if (m.notes) {
+        try {
+          const parsed = JSON.parse(m.notes);
+          if (parsed && typeof parsed === "object") {
+            partner_name = parsed.partner_name ?? null;
+            if (parsed.married_via_matrimony !== undefined) {
+              married_via_matrimony = parsed.married_via_matrimony;
+            }
+          }
+        } catch (e) {
+          partner_name = m.notes;
+        }
+      }
+      return {
+        id: m.id,
+        married_date: m.married_date,
+        marriage_type: m.marriage_type,
+        married_via_matrimony,
+        partner_name,
+        created_at: m.created_at,
+        bride_profile: m.bride_profile_id ? (profilesMap[m.bride_profile_id] || null) : null,
+        groom_profile: m.groom_profile_id ? (profilesMap[m.groom_profile_id] || null) : null
+      };
+    });
+
+    return NextResponse.json({ marriages: mappedMarriages });
   } catch (error) {
     console.error("GET /api/admin/map-married error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -25,6 +25,8 @@
  */
 
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createClient } from "../../../../utils/supabase/server.ts";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { verifyOtp, clearOtps } from "../../../../lib/otp/index.js";
 
@@ -286,9 +288,33 @@ export async function POST(request) {
     // ── 10. Clean up used OTPs ───────────────────────────────────────────
     await clearOtps(email);
 
+    // Generate a magic link token to create a real session (cookie-based)
+    let token = null;
+    try {
+      const cookieStore = await cookies();
+      const supabase    = createClient(cookieStore);
+
+      const { data: linkData } = await adminSupabase.auth.admin.generateLink({
+        type:  "magiclink",
+        email,
+      });
+
+      if (linkData?.properties) {
+        const accessToken = linkData.properties.access_token;
+        const refreshToken = linkData.properties.refresh_token;
+        if (accessToken && refreshToken) {
+          token = accessToken;
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        }
+      }
+    } catch (sessionErr) {
+      console.warn("Auto sign-in during registration failed:", sessionErr.message);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Registration successful! Your profile is under review.",
+      token,
       user: {
         id:    userId,
         email,

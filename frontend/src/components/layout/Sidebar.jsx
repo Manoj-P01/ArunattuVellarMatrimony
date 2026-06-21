@@ -25,7 +25,12 @@ export function Sidebar({ state, dispatch, t, onLogout }) {
         { id: "matches",   icon: "bookmark", label: t("shortlist"), badge: 0 },
         { id: "interests", icon: "mail",     label: t("interests"), badge: interestBadge },
         { id: "profile",   icon: "user",     label: t("profile"),   badge: 0 },
-        ...(myProfileId ? [{ id: "happyStory", icon: "heart", label: t("gotMarried"), badge: 0 }] : []),
+        ...(myProfileId ? [{
+          id: "happyStory",
+          icon: "heart",
+          label: myProfile?.got_married ? (t("updateTestimonial") || "Update Testimonial") : t("gotMarried"),
+          badge: 0
+        }] : []),
       ];
 
   return (

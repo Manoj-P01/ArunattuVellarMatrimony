@@ -34,7 +34,7 @@ import { createClient } from "../../../../utils/supabase/server.ts";
 export async function PATCH(request, { params }) {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient(cookieStore, request);
     const { id } = await params;
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -135,7 +135,7 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient(cookieStore, request);
     const { id } = await params;
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();

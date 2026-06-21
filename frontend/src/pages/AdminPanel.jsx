@@ -9,6 +9,7 @@ import {
   apiAdminGetPendingAdmins, apiAdminReviewAdmin,
   apiAdminGetPhotos, apiAdminReviewPhoto,
   apiAdminGetMarriages, apiAdminMapMarried,
+  apiAdminSaveProfile,
 } from "../api/client.js";
 import { formatPhone, waLink, parsePhone } from "../components/PhoneInput.jsx";
 
@@ -174,6 +175,78 @@ function AdminProfileDetail({ profile, onClose, dispatch, t, onApprove, onReject
             </div>
           )}
 
+          {p.profile_status === "married" && (
+            <div style={{ display: "flex", gap: 10, marginBottom: 20, padding: "12px 16px", background: "#F3E8FF", borderRadius: 8, border: "1px solid #D8B4FE", flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 13, flex: 1, color: "#6B21A8", minWidth: 180 }}>💑 Married Profile — Update status?</span>
+              <button className="btn btn-sm btn-primary"
+                onClick={async () => {
+                  if (!window.confirm("Mark this user as Divorced and reactivate their profile?")) return;
+                  try {
+                    const res = await apiAdminSaveProfile(p.id, { marital_status: "divorced" });
+                    if (res.success) {
+                      dispatch({
+                        type: "SAVE_PROFILE",
+                        payload: {
+                          profileId: p.id,
+                          updates: {
+                            marital_status: "divorced",
+                            got_married: false,
+                            profile_status: "active",
+                            testimonial_approved: false,
+                            marriage_date: null,
+                            marriage_feedback: null,
+                            marriage_photo: null,
+                            partner_profile_id: null
+                          }
+                        }
+                      });
+                      alert("Profile marked as Divorced and reactivated!");
+                      onClose();
+                    } else {
+                      alert(res.error || "Failed to update profile");
+                    }
+                  } catch (e) {
+                    alert("Error updating profile");
+                  }
+                }}>
+                Mark as Divorced
+              </button>
+              <button className="btn btn-sm btn-primary"
+                onClick={async () => {
+                  if (!window.confirm("Mark this user as Widowed and reactivate their profile?")) return;
+                  try {
+                    const res = await apiAdminSaveProfile(p.id, { marital_status: "widowed" });
+                    if (res.success) {
+                      dispatch({
+                        type: "SAVE_PROFILE",
+                        payload: {
+                          profileId: p.id,
+                          updates: {
+                            marital_status: "widowed",
+                            got_married: false,
+                            profile_status: "active",
+                            testimonial_approved: false,
+                            marriage_date: null,
+                            marriage_feedback: null,
+                            marriage_photo: null,
+                            partner_profile_id: null
+                          }
+                        }
+                      });
+                      alert("Profile marked as Widowed and reactivated!");
+                      onClose();
+                    } else {
+                      alert(res.error || "Failed to update profile");
+                    }
+                  } catch (e) {
+                    alert("Error updating profile");
+                  }
+                }}>
+                Mark as Widowed
+              </button>
+            </div>
+          )}
+
           <Section title={t("personalDetails")} icon="user">
             <Row label={t("dob")} value={p.dob ? `${new Date(p.dob).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} (${calcAge(p.dob)} ${t("yrs")})` : null} />
             <Row label={t("birthTime")} value={p.birth_time ? (() => { try { const [h, m] = p.birth_time.split(":"); const hh = parseInt(h); return `${hh > 12 ? hh - 12 : hh || 12}:${m} ${hh >= 12 ? "PM" : "AM"}`; } catch { return p.birth_time; } })() : null} />
@@ -270,6 +343,8 @@ function AdminProfileDetail({ profile, onClose, dispatch, t, onApprove, onReject
   );
 }
 
+const base = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
+
 // ── Main Admin Panel ──────────────────────────────────────────────────────────
 export function AdminPanel({ state, dispatch, t }) {
   const { adminTab } = state;
@@ -285,6 +360,7 @@ export function AdminPanel({ state, dispatch, t }) {
   const [pendingPhotosCount, setPendingPhotosCount] = useState(0);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState(null); // { url, name, profileId, photoType }
+  const [viewingTestimonial, setViewingTestimonial] = useState(null); // { bride, groom, testimonial, photo, profileId, isApproved }
 
   // ── Export options ─────────────────────────────────────────────────────
   const [exportFilter, setExportFilter] = useState("all");
@@ -447,6 +523,8 @@ export function AdminPanel({ state, dispatch, t }) {
           marriedDate: m.married_date,
           marriageType: m.marriage_type,
           partnerName: m.partner_name,
+          bride: m.bride_profile || null,
+          groom: m.groom_profile || null,
         }));
         dispatch({ type: "SET_DATA", payload: { marriages: normalised } });
       })
@@ -456,7 +534,7 @@ export function AdminPanel({ state, dispatch, t }) {
 
   const loadTestimonials = useCallback(() => {
     setTestimonialsLoading(true);
-    fetch("/api/testimonials")
+    fetch(`${base}/api/testimonials`)
       .then(res => res.json())
       .then(data => {
         setTestimonials(data.testimonials || []);
@@ -466,10 +544,8 @@ export function AdminPanel({ state, dispatch, t }) {
   }, []);
 
   useEffect(() => {
-    if (adminTab === "married") {
-      loadMarriages();
-    }
-  }, [adminTab, loadMarriages]);
+    loadMarriages();
+  }, [loadMarriages]);
 
   useEffect(() => {
     loadTestimonials();
@@ -762,7 +838,11 @@ export function AdminPanel({ state, dispatch, t }) {
                   marginLeft: 10, background: "rgba(255,255,255,0.18)",
                   padding: "2px 10px", borderRadius: 12, fontSize: 11, fontWeight: 600,
                 }}>
-                  {lightboxPhoto.photoType === "horoscope" ? "🔯 Jathagam" : "📷 Gallery"}
+                  {lightboxPhoto.photoType === "profile" && "👤 Profile Photo"}
+                  {lightboxPhoto.photoType === "testimonial" && "🎉 Testimonial Photo"}
+                  {lightboxPhoto.photoType === "horoscope" && "🔯 Jathagam"}
+                  {lightboxPhoto.photoType === "gallery" && "📷 Gallery Photo"}
+                  {!["profile", "testimonial", "horoscope", "gallery"].includes(lightboxPhoto.photoType) && `📷 ${lightboxPhoto.photoType}`}
                 </span>
               )}
             </div>
@@ -799,6 +879,86 @@ export function AdminPanel({ state, dispatch, t }) {
             actionLoading={actionLoading}
           />
         )}
+
+        {/* Testimonial View Modal */}
+        {viewingTestimonial && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+            onClick={e => { if (e.target === e.currentTarget) setViewingTestimonial(null); }}>
+            <div className="card animate-in" style={{ maxWidth: 500, width: "100%", padding: 24, position: "relative", background: "white" }}>
+              <button onClick={() => setViewingTestimonial(null)}
+                style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--clr-text-muted)" }}>
+                ✕
+              </button>
+              <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: "var(--clr-maroon)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>💖</span> Testimonial Details
+              </h3>
+              
+              <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: "var(--clr-text-muted)", fontWeight: 600 }}>COUPLE</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>
+                    {viewingTestimonial.brideName || "Bride"} 💑 {viewingTestimonial.groomName || "Groom"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--clr-text-muted)", fontWeight: 600 }}>WEDDING DATE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {viewingTestimonial.marriedDate ? new Date(viewingTestimonial.marriedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                  </div>
+                </div>
+              </div>
+
+              {viewingTestimonial.photo && (
+                <div style={{ width: "100%", maxHeight: 220, overflow: "hidden", borderRadius: 8, border: "1px solid var(--clr-border)", marginBottom: 16 }}>
+                  <img src={viewingTestimonial.photo} alt="Wedding" style={{ width: "100%", height: "auto", display: "block" }} />
+                </div>
+              )}
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: "var(--clr-text-muted)", fontWeight: 600, marginBottom: 6 }}>SUCCESS STORY / FEEDBACK</div>
+                <div style={{ fontSize: 13, lineHeight: 1.6, background: "var(--clr-surface-alt)", padding: 14, borderRadius: 8, fontStyle: "italic", borderLeft: "4px solid var(--clr-saffron)" }}>
+                  "{viewingTestimonial.testimonial}"
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+                {!viewingTestimonial.isApproved && (
+                  <button className="btn btn-success btn-sm"
+                    disabled={viewingTestimonial.loading}
+                    onClick={async () => {
+                      setViewingTestimonial(v => ({ ...v, loading: true }));
+                      try {
+                        const res = await apiAdminSaveProfile(viewingTestimonial.profileId, { testimonial_approved: true });
+                        if (res.success) {
+                          dispatch({
+                            type: "SAVE_PROFILE",
+                            payload: {
+                              profileId: viewingTestimonial.profileId,
+                              updates: { testimonial_approved: true }
+                            }
+                          });
+                          loadTestimonials();
+                          setViewingTestimonial(null);
+                        } else {
+                          alert(res.error || "Failed to approve testimonial");
+                          setViewingTestimonial(v => ({ ...v, loading: false }));
+                        }
+                      } catch (err) {
+                        alert("Error approving testimonial");
+                        setViewingTestimonial(v => ({ ...v, loading: false }));
+                      }
+                    }}>
+                    {viewingTestimonial.loading ? "Approving..." : "Approve Testimonial"}
+                  </button>
+                )}
+                <button className="btn btn-secondary btn-sm" onClick={() => setViewingTestimonial(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
           <Icon name="shield" size={24} />
@@ -1005,6 +1165,28 @@ export function AdminPanel({ state, dispatch, t }) {
                         <p style={{ fontStyle: "italic", marginBottom: 12, color: "var(--clr-text)" }}>
                           "{t.marriage_feedback}"
                         </p>
+                        {t.marriage_photo && (
+                          <div style={{
+                            width: "100%",
+                            height: 120,
+                            overflow: "hidden",
+                            borderRadius: 6,
+                            marginBottom: 12,
+                            border: "1px solid var(--clr-border)"
+                          }}>
+                            <img 
+                              src={t.marriage_photo} 
+                              alt={`${t.name}'s marriage`} 
+                              onClick={() => setLightboxPhoto({ url: t.marriage_photo, name: t.name, profileId: t.profile_id, photoType: "gallery" })}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                cursor: "zoom-in"
+                              }}
+                            />
+                          </div>
+                        )}
                         <div style={{ display: "flex", alignItems: "center", gap: 10, borderTop: "1px dashed var(--clr-border)", paddingTop: 10 }}>
                           <div className={`avatar avatar-sm avatar-${t.profile_type}`} style={{ fontWeight: 700 }}>
                             {t.name?.[0] || "?"}
@@ -1415,23 +1597,30 @@ export function AdminPanel({ state, dispatch, t }) {
                         <th>Groom</th>
                         <th>Married Date</th>
                         <th>Type</th>
+                        <th>Photo</th>
                         <th>Testimonial</th>
+                        <th>Actions</th>
                       </tr></thead>
                       <tbody>
                         {state.marriages.map(m => {
-                          const bride = m.brideId ? state.profiles.find(p => p.id === m.brideId) : null;
-                          const groom = m.groomId ? state.profiles.find(p => p.id === m.groomId) : null;
+                          const bride = m.bride || (m.brideId ? state.profiles.find(p => p.id === m.brideId) : null);
+                          const groom = m.groom || (m.groomId ? state.profiles.find(p => p.id === m.groomId) : null);
                           const testimonial = bride?.marriage_feedback || groom?.marriage_feedback || "";
+                          const mPhoto = bride?.marriage_photo || groom?.marriage_photo || "";
+                          
+                          const profileWithTestimonial = (bride && bride.marriage_feedback) ? bride : ((groom && groom.marriage_feedback) ? groom : null);
+                          const isApproved = profileWithTestimonial ? !!profileWithTestimonial.testimonial_approved : false;
+
                           return (
                             <tr key={m.id}>
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                   <div className="avatar avatar-sm avatar-bride" style={{ opacity: bride ? 1 : 0.5 }}>
-                                    {bride?.avatar || "✕"}
+                                    {bride?.avatar || (m.partnerName ? m.partnerName[0] : "✕")}
                                   </div>
                                   <div>
                                     <div style={{ fontWeight: 600, fontSize: 13, color: bride ? "inherit" : "var(--clr-text-muted)" }}>
-                                      {bride ? bride.name : "Married Out of Matrimony"}
+                                      {bride ? bride.name : (m.partnerName || "Married Out of Matrimony")}
                                     </div>
                                     {bride && <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{bride.profile_id}</div>}
                                   </div>
@@ -1440,11 +1629,11 @@ export function AdminPanel({ state, dispatch, t }) {
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                   <div className="avatar avatar-sm avatar-groom" style={{ opacity: groom ? 1 : 0.5 }}>
-                                    {groom?.avatar || "✕"}
+                                    {groom?.avatar || (m.partnerName ? m.partnerName[0] : "✕")}
                                   </div>
                                   <div>
                                     <div style={{ fontWeight: 600, fontSize: 13, color: groom ? "inherit" : "var(--clr-text-muted)" }}>
-                                      {groom ? groom.name : "Married Out of Matrimony"}
+                                      {groom ? groom.name : (m.partnerName || "Married Out of Matrimony")}
                                     </div>
                                     {groom && <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>{groom.profile_id}</div>}
                                   </div>
@@ -1456,8 +1645,81 @@ export function AdminPanel({ state, dispatch, t }) {
                                   : "—"}
                               </td>
                               <td><span className="badge badge-approved">{m.marriageType}</span></td>
-                              <td style={{ fontSize: 13, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={testimonial}>
-                                {testimonial ? `"${testimonial}"` : <span style={{ color: "var(--clr-text-muted)", fontStyle: "italic" }}>None</span>}
+                              <td>
+                                {mPhoto ? (
+                                  <img 
+                                    src={mPhoto} 
+                                    alt="Marriage" 
+                                    onClick={() => setLightboxPhoto({ url: mPhoto, name: (bride?.name || "") + " & " + (groom?.name || "Partner"), profileId: bride?.profile_id || groom?.profile_id, photoType: "gallery" })}
+                                    style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, border: "1px solid var(--clr-border)", cursor: "zoom-in" }} 
+                                  />
+                                ) : (
+                                  <span style={{ color: "var(--clr-text-muted)", fontStyle: "italic", fontSize: 12 }}>None</span>
+                                )}
+                              </td>
+                              <td style={{ fontSize: 13, maxWidth: 220 }}>
+                                {testimonial ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={testimonial}>
+                                      "{testimonial}"
+                                    </div>
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, alignSelf: "flex-start",
+                                      background: isApproved ? "#E6F9EE" : "#FFF3CD",
+                                      color: isApproved ? "#1B7A3D" : "#856404",
+                                      border: `1px solid ${isApproved ? "#A3E635" : "#FFD166"}`
+                                    }}>
+                                      {isApproved ? "Approved" : "Pending Review"}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: "var(--clr-text-muted)", fontStyle: "italic", fontSize: 12 }}>None</span>
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  {testimonial && (
+                                    <>
+                                      <button className="btn btn-sm btn-secondary" title="View Testimonial"
+                                        onClick={() => setViewingTestimonial({
+                                          brideName: bride?.name,
+                                          groomName: groom?.name,
+                                          marriedDate: m.marriedDate,
+                                          photo: mPhoto,
+                                          testimonial: testimonial,
+                                          profileId: profileWithTestimonial.id,
+                                          isApproved: isApproved
+                                        })}>
+                                        <Icon name="eye" size={12} /> View
+                                      </button>
+                                      {!isApproved && (
+                                        <button className="btn btn-sm btn-success" title="Approve Testimonial"
+                                          onClick={async () => {
+                                            if (!window.confirm("Approve this testimonial for the homepage?")) return;
+                                            try {
+                                              const res = await apiAdminSaveProfile(profileWithTestimonial.id, { testimonial_approved: true });
+                                              if (res.success) {
+                                                dispatch({
+                                                  type: "SAVE_PROFILE",
+                                                  payload: {
+                                                    profileId: profileWithTestimonial.id,
+                                                    updates: { testimonial_approved: true }
+                                                  }
+                                                });
+                                                loadTestimonials();
+                                              } else {
+                                                alert(res.error || "Failed to approve testimonial");
+                                              }
+                                            } catch (err) {
+                                              alert("Error approving testimonial");
+                                            }
+                                          }}>
+                                          <Icon name="check" size={12} /> Approve
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1723,7 +1985,13 @@ export function AdminPanel({ state, dispatch, t }) {
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{ph.profiles?.name}</div>
                           <div style={{ fontSize: 11, color: "var(--clr-text-muted)" }}>
-                            {ph.profiles?.profile_id} · {ph.photo_type === "horoscope" ? "🔯 Jathagam" : "📷 Gallery Photo"}
+                            {ph.profiles?.profile_id} · {
+                              ph.photo_type === "profile" ? "👤 Profile Photo" :
+                              ph.photo_type === "testimonial" ? "🎉 Testimonial Photo" :
+                              ph.photo_type === "horoscope" ? "🔯 Jathagam" :
+                              ph.photo_type === "gallery" ? "📷 Gallery Photo" :
+                              `📷 ${ph.photo_type || "Photo"}`
+                            }
                           </div>
                         </div>
                       </div>

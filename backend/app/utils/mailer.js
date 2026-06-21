@@ -80,14 +80,15 @@ function htmlWrap(bodyContent) {
  * @param {string} opts.profileType  - "bride" | "groom"
  * @param {string} opts.adminName    - Name of the admin who approved
  */
-export async function sendApprovalEmail({ toEmail, userName, profileId, profileType, adminName, adminMobile }) {
+export async function sendApprovalEmail({ toEmail, userName, profileId, profileType, adminName, adminMobile, appUrl }) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASS) {
     console.warn("[mailer] GMAIL_USER or GMAIL_APP_PASS not set — skipping approval email");
     return { ok: false, error: "SMTP not configured" };
   }
 
   const typeLabel  = profileType === "bride" ? "Bride" : "Groom";
-  const loginUrl   = `${APP_URL}/login`;
+  const urlToUse   = appUrl || APP_URL;
+  const loginUrl   = `${urlToUse}/login`;
   const approvedBy = adminName || "AVS Matrimony Admin";
 
   const body = `

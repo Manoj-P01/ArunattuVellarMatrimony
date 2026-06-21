@@ -127,6 +127,17 @@ export async function POST(request) {
     }
 
     if (userEmail) {
+      let origin = request.headers.get("origin") || request.headers.get("referer");
+      if (origin) {
+        try {
+          const urlObj = new URL(origin);
+          origin = urlObj.origin;
+        } catch (err) {}
+      }
+      if (!origin) {
+        origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
+      }
+
       sendApprovalEmail({
         toEmail:     userEmail,
         userName:    profile.name,
@@ -134,6 +145,7 @@ export async function POST(request) {
         profileType: profile.profile_type,
         adminName:   admin.name,
         adminMobile: adminMobile,
+        appUrl:      origin,
       }).then(r => {
         if (!r.ok) console.warn("[approve] email failed:", r.error);
       });

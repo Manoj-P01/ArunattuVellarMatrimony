@@ -210,6 +210,7 @@ export const TRANSLATIONS = {
     /* ── Success Stories / Got Married ── */
     happyStory: "Happy Story",
     gotMarried: "Got Married?",
+    updateTestimonial: "Update Testimonial",
     marriageDate: "Date of Marriage",
     partnerProfileId: "Partner's Profile ID (Optional)",
     feedback: "Your Feedback / Success Story",
@@ -429,6 +430,7 @@ export const TRANSLATIONS = {
     /* ── Success Stories / Got Married ── */
     happyStory: "வெற்றிக் கதை",
     gotMarried: "திருமணம் ஆகிவிட்டதா?",
+    updateTestimonial: "வெற்றிக் கதையைத் திருத்து",
     marriageDate: "திருமண தேதி",
     partnerProfileId: "துணையின் சுயவிவர ஐடி (விருப்பத்தேர்வு)",
     feedback: "உங்கள் கருத்து / வெற்றிக் கதை",

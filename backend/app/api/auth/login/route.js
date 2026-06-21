@@ -114,7 +114,8 @@ export async function POST(request) {
         elder_brothers, elder_brothers_married, younger_brothers, younger_brothers_married,
         elder_sisters, elder_sisters_married, younger_sisters, younger_sisters_married,
         brother_count, brother_married_status, sister_count, sister_married_status,
-        profile_status, approval_status, approved_by, approved_at,
+        got_married, marriage_date, partner_profile_id, marriage_feedback, marriage_photo, marriage_type,
+        testimonial_approved, profile_status, approval_status, approved_by, approved_at,
         created_at, updated_at
       `)
       .eq("user_id", userId)
@@ -127,7 +128,8 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       message: "Login successful",
-      dualRole,   // true → frontend should ask: "Login as Admin" or "Login as {profile_type}"
+      dualRole,
+      token: authData.session?.access_token || null,
       user: {
         id:    userId,
         email: dbUser?.email || email,

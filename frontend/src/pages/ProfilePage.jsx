@@ -7,25 +7,164 @@ import { AVS_KOTHIRAMS } from "../constants/kothirams.js";
 
 const base = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:3000" : "");
 
+// ── Height picker (ft & in OR cm) ─────────────────────────────────────────────
+function HeightPicker({ value, onChange }) {
+  const parseHeight = useCallback((val) => {
+    if (!val) return { feet: "5", inches: "0", cm: "152", unit: "ft" };
+    const mFtIn = val.match(/^(\d+)\s*(?:ft|'|’)\s*(\d+)?\s*(?:in|")?/i);
+    if (mFtIn) {
+      const f = mFtIn[1];
+      const i = mFtIn[2] || "0";
+      const totalIn = parseInt(f) * 12 + parseInt(i);
+      const c = String(Math.round(totalIn * 2.54));
+      return { feet: f, inches: i, cm: c, unit: "ft" };
+    }
+    const mCm = val.match(/^(\d+)\s*cm/i);
+    if (mCm) {
+      const c = mCm[1];
+      const totalIn = Math.round(parseInt(c) / 2.54);
+      const f = String(Math.floor(totalIn / 12));
+      const i = String(totalIn % 12);
+      return { feet: f, inches: i, cm: c, unit: "cm" };
+    }
+    return { feet: "5", inches: "0", cm: "152", unit: "ft" };
+  }, []);
+
+  const parsed = parseHeight(value);
+
+  const [unit, setUnit] = useState(parsed.unit);
+  const [feet, setFeet] = useState(parsed.feet);
+  const [inches, setInches] = useState(parsed.inches);
+  const [cm, setCm] = useState(parsed.cm);
+
+  // Sync state if value changes from parent (e.g. reset/load)
+  useEffect(() => {
+    const p = parseHeight(value);
+    setUnit(p.unit);
+    setFeet(p.feet);
+    setInches(p.inches);
+    setCm(p.cm);
+  }, [value, parseHeight]);
+
+  const emit = useCallback((u, f, i, c) => {
+    onChange(u === "ft" ? `${f}ft ${i}in` : `${c} cm`);
+  }, [onChange]);
+
+  // Ensure default value is emitted when value is empty
+  useEffect(() => {
+    if (!value) {
+      emit(unit, feet, inches, cm);
+    }
+  }, [value, unit, feet, inches, cm, emit]);
+
+  const handleUnit = (u) => {
+    setUnit(u);
+    if (u === "ft") {
+      const totalIn = Math.round(parseInt(cm || 152) / 2.54);
+      const f = String(Math.floor(totalIn / 12));
+      const i = String(totalIn % 12);
+      setFeet(f); setInches(i);
+      emit("ft", f, i, cm);
+    } else {
+      const c = String(Math.round((parseInt(feet || 5) * 12 + parseInt(inches || 0)) * 2.54));
+      setCm(c);
+      emit("cm", feet, inches, c);
+    }
+  };
+
+  const feetOpts = Array.from({ length: 5 }, (_, i) => String(i + 4));   // 4–8
+  const inchesOpts = Array.from({ length: 12 }, (_, i) => String(i));       // 0–11
+
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", width: "100%", marginTop: 6 }}>
+      {/* Unit toggle */}
+      <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--clr-border)", flexShrink: 0 }}>
+        {["ft", "cm"].map(u => (
+          <button key={u} type="button"
+            onClick={() => handleUnit(u)}
+            style={{
+              padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none",
+              background: unit === u ? "var(--clr-saffron)" : "var(--clr-bg)",
+              color: unit === u ? "white" : "var(--clr-text-muted)",
+            }}>
+            {u === "ft" ? "ft & in" : "cm"}
+          </button>
+        ))}
+      </div>
+
+      {unit === "ft" ? (
+        <>
+          <select className="form-input" style={{ flex: 1, minWidth: 80, margin: 0 }}
+            value={feet}
+            onChange={e => { setFeet(e.target.value); emit("ft", e.target.value, inches, cm); }}>
+            {feetOpts.map(f => <option key={f} value={f}>{f} ft</option>)}
+          </select>
+          <select className="form-input" style={{ flex: 1, minWidth: 80, margin: 0 }}
+            value={inches}
+            onChange={e => { setInches(e.target.value); emit("ft", feet, e.target.value, cm); }}>
+            {inchesOpts.map(i => <option key={i} value={i}>{i} in</option>)}
+          </select>
+          <span style={{ fontSize: 12, color: "var(--clr-text-muted)", whiteSpace: "nowrap" }}>
+            = {Math.round((parseInt(feet || 5) * 12 + parseInt(inches || 0)) * 2.54)} cm
+          </span>
+        </>
+      ) : (
+        <>
+          <input className="form-input" type="number" min={100} max={250}
+            style={{ flex: 1, maxWidth: 82, margin: 0 }}
+            value={cm}
+            onChange={e => { setCm(e.target.value); emit("cm", feet, inches, e.target.value); }}
+            placeholder="e.g. 165"
+          />
+          <span style={{ fontSize: 12, color: "var(--clr-text-muted)", whiteSpace: "nowrap" }}>
+            cm = {(() => {
+              const val = parseInt(cm);
+              if (isNaN(val) || val <= 0) return "—";
+              const totalIn = val / 2.54;
+              let f = Math.floor(totalIn / 12);
+              let i = Math.round(totalIn % 12);
+              if (i === 12) {
+                f += 1;
+                i = 0;
+              }
+              return `${f}ft ${i}in`;
+            })()}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 async function uploadPhoto(fileBase64, fileName, photoType = "gallery") {
+  const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
   const res = await fetch(`${base}/api/photos`, {
     method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
     body: JSON.stringify({ file_base64: fileBase64, file_name: fileName, photo_type: photoType }),
   });
   return res.json();
 }
 
 async function deletePhoto(photoId) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
   const res = await fetch(`${base}/api/photos?photo_id=${photoId}`, {
     method: "DELETE", credentials: "include",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
   });
   return res.json();
 }
 
 async function fetchMyPhotos(profileId) {
   try {
-    const res = await fetch(`${base}/api/photos?profile_id=${profileId}`, { credentials: "include" });
+    const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
+    const res = await fetch(`${base}/api/photos?profile_id=${profileId}`, { 
+      credentials: "include",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
     const d = await res.json(); return d.photos || [];
   } catch { return []; }
 }
@@ -92,6 +231,7 @@ export function ProfilePage({ state, dispatch, t }) {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [myPhotos, setMyPhotos]             = useState([]);
   const [uploading, setUploading]           = useState(false);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null);
   const [fatherKothiramCustom, setFatherKothiramCustom] = useState(false);
   const [motherKothiramCustom, setMotherKothiramCustom] = useState(false);
   const [kothiramCustom, setKothiramCustom]             = useState(false);
@@ -299,9 +439,13 @@ export function ProfilePage({ state, dispatch, t }) {
     // Save to backend if we have a real profile id
     if (myProfile?.id && !myProfile.id.startsWith("local_")) {
       try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
         const res = await fetch(`${base}/api/profiles/${myProfile.id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
           credentials: "include",
           body: JSON.stringify(payload),
         });
@@ -358,9 +502,13 @@ export function ProfilePage({ state, dispatch, t }) {
     const newStatus = (myProfile.profile_status || "active") === "active" ? "inactive" : "active";
     setStatusUpdating(true);
     try {
-      const res = await fetch(`/api/profiles/${myProfile.id}`, {
+      const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
+      const res = await fetch(`${base}/api/profiles/${myProfile.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         credentials: "include",
         body: JSON.stringify({ profile_status: newStatus }),
       });
@@ -425,6 +573,22 @@ export function ProfilePage({ state, dispatch, t }) {
     .map(f => f.label)
     .slice(0, 4); // show max 4 hints
 
+  if (fullscreenPhoto) {
+    return (
+      <div onClick={() => setFullscreenPhoto(null)}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
+        <button onClick={() => setFullscreenPhoto(null)}
+          style={{ position: "absolute", top: 20, right: 24, background: "none", border: "none",
+            color: "white", fontSize: 32, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        <img src={fullscreenPhoto} alt=""
+          style={{ maxWidth: "94vw", maxHeight: "94vh", objectFit: "contain", borderRadius: 8,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}
+          onClick={e => e.stopPropagation()} />
+      </div>
+    );
+  }
+
   return (
     <div className="page-container animate-in" style={{ padding: "24px 16px", maxWidth: 760, paddingBottom: 80 }}>
       {/* Header */}
@@ -454,8 +618,14 @@ export function ProfilePage({ state, dispatch, t }) {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
             <div style={{ position: "relative" }}>
               <div className={`avatar avatar-xl avatar-${pType}`}
-                style={{ border: "4px solid white", boxShadow: "var(--shadow-md)", overflow: "hidden", cursor: editing ? "pointer" : "default" }}
-                onClick={() => editing && photoInputRef.current?.click()}>
+                style={{ border: "4px solid white", boxShadow: "var(--shadow-md)", overflow: "hidden", cursor: editing ? "pointer" : (form.photo ? "zoom-in" : "default") }}
+                onClick={() => {
+                  if (editing) {
+                    photoInputRef.current?.click();
+                  } else if (form.photo) {
+                    setFullscreenPhoto(form.photo);
+                  }
+                }}>
                 {form.photo
                   ? <img src={form.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
                   : <span style={{ fontSize: 20, fontWeight: 700 }}>{form.name?.slice(0, 2).toUpperCase() || "?"}</span>
@@ -548,7 +718,7 @@ export function ProfilePage({ state, dispatch, t }) {
         { key: "dob", label: t("dob"), type: "date" },
         { key: "birth_time", label: t("birthTime"), type: "time" },
         { key: "birth_place", label: t("birthPlace"), type: "text", placeholder: t("birthPlace") + "..." },
-        { key: "height", label: t("height"), type: "text", placeholder: "e.g. 5ft 6in" },
+        { key: "height", label: t("height"), type: "custom_height" },
         { key: "marital_status", label: t("maritalStatus"), type: "select", options: [
           { v: "never_married", l: "Never Married" },
           { v: "divorced",      l: "Divorced" },
@@ -1272,18 +1442,21 @@ export function ProfilePage({ state, dispatch, t }) {
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10 }}>
                 {myPhotos.filter(p => p.photo_type === "gallery").map(ph => (
-                  <div key={ph.id} style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden",
-                    border: "2px solid " + (ph.status === "approved" ? "var(--clr-success)" : ph.status === "rejected" ? "var(--clr-danger)" : "var(--clr-border)") }}>
+                  <div key={ph.id}
+                    onClick={() => setFullscreenPhoto(ph.photo_url)}
+                    style={{ position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: "zoom-in",
+                      border: "2px solid " + (ph.status === "approved" ? "var(--clr-success)" : ph.status === "rejected" ? "var(--clr-danger)" : "var(--clr-border)") }}>
                     <img src={ph.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.5)",
                       fontSize: 9, fontWeight: 700, color: "white", textAlign: "center", padding: 3 }}>
                       {ph.status === "approved" ? "✓ Approved" : ph.status === "rejected" ? "✗ Rejected" : "⏳ Pending"}
                     </div>
-                    <button onClick={async () => {
+                    <button onClick={async (e) => {
+                      e.stopPropagation();
                       if (!confirm("Delete this photo?")) return;
                       const res = await deletePhoto(ph.id);
                       if (res.success) setMyPhotos(prev => prev.filter(x => x.id !== ph.id));
-                    }} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)",
+                    }} style={{ position: "absolute", top: 4, right: 4, zIndex: 10, background: "rgba(0,0,0,0.6)",
                       border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer",
                       display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
                       <Icon name="x" size={11} />
@@ -1420,6 +1593,11 @@ function renderSection(title, fields, form, update, editing, t) {
                   <select className="form-input" value={form[f.key] || ""} onChange={e => update(f.key, e.target.value)}>
                     {f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
                   </select>
+                ) : f.type === "custom_height" ? (
+                  <HeightPicker
+                    value={form[f.key] || ""}
+                    onChange={v => update(f.key, v)}
+                  />
                 ) : f.type === "tel" ? (
                   <>
                     <PhoneInput

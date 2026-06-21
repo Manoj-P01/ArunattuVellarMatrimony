@@ -133,6 +133,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
+      token: accessToken || null,
       user: {
         id:            authUserId,
         email:         identifier.trim().toLowerCase(),

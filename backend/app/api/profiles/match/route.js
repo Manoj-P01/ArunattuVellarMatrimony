@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "../../../../utils/supabase/server.ts";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const PROFILE_SELECT = `
-  id, profile_id, profile_type, name, dob, age,
+  id, user_id, profile_id, profile_type, name, dob, age,
   height, marital_status, education, occupation, salary,
   kothiram, district, state, country,
   photo_url, photo_privacy, about_me, created_at
@@ -23,6 +24,11 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const svc = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
     const { data: myProfile } = await supabase
       .from("profiles")
       .select("id, profile_type, age, district, marital_status, education")
@@ -31,6 +37,12 @@ export async function GET(request) {
 
     if (!myProfile) {
       return NextResponse.json({ error: "Complete your profile to see matches" }, { status: 404 });
+    }
+
+    let isAdmin = false;
+    if (user) {
+      const { data: viewer } = await svc.from("users").select("role").eq("id", user.id).single();
+      isAdmin = viewer?.role === "admin" || viewer?.role === "super_admin";
     }
 
     const oppositeType = myProfile.profile_type === "bride" ? "groom" : "bride";
@@ -56,8 +68,42 @@ export async function GET(request) {
 
     if (error) throw error;
 
+    // Check for unapproved photos
+    const profileIds = (data || []).map(p => p.id);
+    let unapprovedUrls = new Set();
+    if (profileIds.length > 0) {
+      const { data: photosData } = await svc
+        .from("photos")
+        .select("photo_url, status, profile_id")
+        .in("profile_id", profileIds)
+        .neq("status", "approved");
+
+      let records = photosData || [];
+      const hasPhotoUrlCol = records.length > 0 || !(await svc.from("photos").select("photo_url").limit(1)).error;
+      if (!hasPhotoUrlCol) {
+        const { data: retryData } = await svc
+          .from("photos")
+          .select("url, status, profile_id")
+          .in("profile_id", profileIds)
+          .neq("status", "approved");
+        records = (retryData || []).map(r => ({ ...r, photo_url: r.url }));
+      }
+      unapprovedUrls = new Set(records.map(r => r.photo_url).filter(Boolean));
+    }
+
+    const sanitized = (data || []).map(p => {
+      const isOwner = user && p.user_id === user.id;
+      if (isAdmin || isOwner) {
+        return p;
+      }
+      if (p.photo_url && unapprovedUrls.has(p.photo_url)) {
+        return { ...p, photo_url: null };
+      }
+      return p;
+    });
+
     // Sort: same district first, then same marital_status
-    const sorted = (data || []).sort((a, b) => {
+    const sorted = sanitized.sort((a, b) => {
       const aD = a.district === myProfile.district ? 1 : 0;
       const bD = b.district === myProfile.district ? 1 : 0;
       if (bD !== aD) return bD - aD;
@@ -76,3 +122,4 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

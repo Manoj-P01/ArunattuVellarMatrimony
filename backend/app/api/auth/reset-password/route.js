@@ -19,7 +19,16 @@ export async function POST(request) {
 
     // redirectTo is where Supabase sends the user after clicking the link.
     // The frontend handles the #access_token hash on load.
-    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:5173";
+    let frontendUrl = request.headers.get("origin") || request.headers.get("referer");
+    if (frontendUrl) {
+      try {
+        const urlObj = new URL(frontendUrl);
+        frontendUrl = urlObj.origin;
+      } catch (err) {}
+    }
+    if (!frontendUrl) {
+      frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:5173";
+    }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: `${frontendUrl}?page=reset-password`,

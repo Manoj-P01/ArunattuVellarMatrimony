@@ -5,7 +5,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 // Full profile columns — aligned with migration_full_setup.sql
 const PROFILE_SELECT = `
-  id, profile_id, profile_type, name, dob, age,
+  id, user_id, profile_id, profile_type, name, dob, age,
   height, marital_status, education, occupation, salary,
   religion, community, kothiram, native_place, country, state, district, city,
   living_country, living_state, living_district,
@@ -19,8 +19,8 @@ const PROFILE_SELECT = `
   elder_sisters, elder_sisters_married, younger_sisters, younger_sisters_married,
   brother_count, brother_married_status, sister_count, sister_married_status,
   about_me, social_links, about_me_privacy, social_links_privacy,
-  got_married, marriage_date, partner_profile_id, marriage_feedback,
-  profile_status, approval_status, approved_by, approved_at,
+  got_married, marriage_date, partner_profile_id, marriage_feedback, marriage_photo, marriage_type,
+  testimonial_approved, profile_status, approval_status, approved_by, approved_at,
   created_at, updated_at
 `.trim();
 
@@ -38,6 +38,17 @@ export async function GET(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore, request);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let isAdmin = false;
+    let currentUserId = user?.id || null;
+    if (currentUserId) {
+      const { data: viewer } = await svc.from("users").select("role").eq("id", currentUserId).single();
+      isAdmin = viewer?.role === "admin" || viewer?.role === "super_admin";
+    }
+
     const { searchParams } = new URL(request.url);
     const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
     const limit = Math.min(50, parseInt(searchParams.get("limit") || "20"));
@@ -53,10 +64,45 @@ export async function GET(request) {
 
     if (error) throw error;
 
+    // Check for unapproved photos
+    const profileIds = (data || []).map(p => p.id);
+    let unapprovedUrls = new Set();
+    if (profileIds.length > 0) {
+      const { data: photosData } = await svc
+        .from("photos")
+        .select("photo_url, status, profile_id")
+        .in("profile_id", profileIds)
+        .neq("status", "approved");
+
+      let records = photosData || [];
+      const hasPhotoUrlCol = records.length > 0 || !(await svc.from("photos").select("photo_url").limit(1)).error;
+      if (!hasPhotoUrlCol) {
+        const { data: retryData } = await svc
+          .from("photos")
+          .select("url, status, profile_id")
+          .in("profile_id", profileIds)
+          .neq("status", "approved");
+        records = (retryData || []).map(r => ({ ...r, photo_url: r.url }));
+      }
+      unapprovedUrls = new Set(records.map(r => r.photo_url).filter(Boolean));
+    }
+
+    const sanitized = (data || []).map(p => {
+      const isOwner = currentUserId && p.user_id === currentUserId;
+      if (isAdmin || isOwner) {
+        return p;
+      }
+      if (p.photo_url && unapprovedUrls.has(p.photo_url)) {
+        return { ...p, photo_url: null };
+      }
+      return p;
+    });
+
     return NextResponse.json({
-      profiles:   data || [],
+      profiles:   sanitized,
       pagination: { page, limit, total: count || 0, pages: Math.ceil((count || 0) / limit) },
     });
+
   } catch (error) {
     console.error("GET /api/profiles error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -70,7 +116,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient(cookieStore, request);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {

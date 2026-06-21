@@ -13,9 +13,14 @@ const adminSecret = import.meta.env.VITE_ADMIN_SECRET ?? "";
 
 // ─── Generic fetch helper ─────────────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("avs_jwt") : null;
   const res = await fetch(`${base}${path}`, {
     credentials: "include",                          // Send Supabase session cookies
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...options.headers
+    },
     ...options,
   });
   if (!res.ok) {
@@ -338,21 +343,16 @@ export async function apiAdminGenerateInvite(role = "admin", note = "") {
 
 // ─── Extra Admin functions used by AdminPanel directly ────────────────────────
 
-/** Get all users with role filter (admin) */
-
-/** Delete an admin user account (super_admin only) */
 export async function apiAdminDeleteUser(userId) {
   return adminFetch(`/api/admin/users?user_id=${userId}`, {
     method: "DELETE",
   });
 }
 
-/** Get pending admin approval requests */
 export async function apiAdminGetPendingAdmins(params = {}) {
   return adminFetch(`/api/admin/approve-admin${buildQuery(params)}`);
 }
 
-/** Approve or reject a pending admin (super_admin only) */
 export async function apiAdminReviewAdmin(adminDetailId, action) {
   return adminFetch("/api/admin/approve-admin", {
     method: "POST",
@@ -360,15 +360,21 @@ export async function apiAdminReviewAdmin(adminDetailId, action) {
   });
 }
 
-/** Get pending/all photos for admin review */
 export async function apiAdminGetPhotos(params = {}) {
   return adminFetch(`/api/admin/photos${buildQuery(params)}`);
 }
 
-/** Approve or reject a photo (admin) */
 export async function apiAdminReviewPhoto(photoId, action) {
   return adminFetch("/api/admin/photos", {
     method: "PATCH",
     body: JSON.stringify({ photo_id: photoId, action }),
   });
 }
+
+export async function apiAdminSaveProfile(profileId, updates) {
+  return adminFetch(`/api/profiles/${profileId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
